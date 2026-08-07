@@ -26,6 +26,8 @@ pub enum SourceKind {
 pub enum TargetKind {
     #[value(name = "rancher-desktop")]
     RancherDesktop,
+    #[value(name = "colima")]
+    Colima,
 }
 
 #[derive(Args, Debug)]

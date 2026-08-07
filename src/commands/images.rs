@@ -257,6 +257,7 @@ fn create_patch_container(image_ref: &str) -> Result<String> {
 }
 
 fn patch_image_container(container_id: &str, certs: &[Certificate]) -> Result<()> {
+    ensure_ca_update_tool(container_id)?;
     let (cert_dir, update_cmd) = detect_patch_strategy(container_id)?;
     exec_in_container(container_id, &["sh", "-lc", &format!("mkdir -p '{cert_dir}'")])?;
 
@@ -266,6 +267,11 @@ fn patch_image_container(container_id: &str, certs: &[Certificate]) -> Result<()
     }
 
     exec_in_container(container_id, &["sh", "-lc", &update_cmd])
+}
+
+fn ensure_ca_update_tool(container_id: &str) -> Result<()> {
+    let install_script = "if command -v update-ca-certificates >/dev/null 2>&1 || command -v update-ca-trust >/dev/null 2>&1; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y ca-certificates; elif command -v apk >/dev/null 2>&1; then apk add --no-cache ca-certificates; elif command -v dnf >/dev/null 2>&1; then dnf install -y ca-certificates; elif command -v yum >/dev/null 2>&1; then yum install -y ca-certificates; elif command -v microdnf >/dev/null 2>&1; then microdnf install -y ca-certificates; elif command -v zypper >/dev/null 2>&1; then zypper --non-interactive install ca-certificates; elif command -v pacman >/dev/null 2>&1; then pacman -Sy --noconfirm ca-certificates; else echo \"unsupported package manager for ca-certificates install\"; exit 1; fi";
+    exec_in_container(container_id, &["sh", "-lc", install_script])
 }
 
 fn detect_patch_strategy(container_id: &str) -> Result<(String, String)> {

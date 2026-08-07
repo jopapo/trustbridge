@@ -2,7 +2,7 @@
 
 TrustBridge is an open-source CLI to sync trusted host certificates into local container runtimes.
 
-Initial focus (MVP): **macOS Keychain -> Rancher Desktop**.
+Initial focus (MVP): **macOS Keychain -> Rancher Desktop / Colima**.
 
 ## Why
 
@@ -15,7 +15,7 @@ TrustBridge aims to solve this once at the host/runtime boundary, instead of per
 
 - Project stage: `v0.1.0` scaffold
 - Source provider: `macos-keychain` (implemented)
-- Target provider: `rancher-desktop` (safe stub for incremental implementation)
+- Target providers: `rancher-desktop`, `colima`
 - Commands: `scan`, `plan`, `apply`, `verify`
 
 ## Design Principles
@@ -50,6 +50,9 @@ cargo run -- plan --only-keywords netskope,inbev
 # Execute sync (real apply by default)
 cargo run -- apply
 
+# Execute sync against Colima
+cargo run -- apply --target colima
+
 # Dry-run using only specific corporate roots
 cargo run -- apply --dry-run --only-keywords netskope,inbev
 
@@ -76,10 +79,16 @@ Notes for Rancher Desktop apply:
 - Runs `update-ca-certificates` (or `update-ca-trust extract` when available).
 - Override instance with `TBRIDGE_RD_INSTANCE=<name>`.
 
+Notes for Colima apply:
+
+- Uses `limactl shell` with default instance `colima`.
+- Override instance with `TBRIDGE_COLIMA_INSTANCE=<name>`.
+
 Notes for container/image patch (inside `apply`):
 
 - Uses `docker exec -u 0` to patch running containers.
 - Detects `update-ca-certificates` or `update-ca-trust extract` automatically.
+- If CA tooling is missing, attempts to install `ca-certificates` as root via distro package manager.
 - Copies selected certs as `*.crt` and runs system CA update inside each container.
 - Patches local images too (default `--images-mode user`, configurable with `user|all|none`).
 - Commits patched image variants with suffix `-tb-<bundle_hash>`.

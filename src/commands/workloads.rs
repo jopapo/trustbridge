@@ -113,6 +113,7 @@ fn confirm_container(container: &str) -> Result<bool> {
 }
 
 fn patch_container(container: &str, certs: &[Certificate], dry_run: bool) -> Result<()> {
+    ensure_ca_update_tool(container, dry_run)?;
     let (cert_dir, update_cmd) = detect_patch_strategy(container)?;
 
     if dry_run {
@@ -134,6 +135,23 @@ fn patch_container(container: &str, certs: &[Certificate], dry_run: bool) -> Res
 
     exec_in_container_root(container, &["sh", "-lc", &update_cmd])?;
     Ok(())
+}
+
+fn ensure_ca_update_tool(container: &str, dry_run: bool) -> Result<()> {
+    if dry_run {
+        let check_script = "if command -v update-ca-certificates >/dev/null 2>&1 || command -v update-ca-trust >/dev/null 2>&1; then exit 0; fi; if command -v apt-get >/dev/null 2>&1 || command -v apk >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v microdnf >/dev/null 2>&1 || command -v zypper >/dev/null 2>&1 || command -v pacman >/dev/null 2>&1; then exit 0; fi; echo UNSUPPORTED";
+        let output = exec_in_container_root_capture(container, &["sh", "-lc", check_script])?;
+        if output.trim() == "UNSUPPORTED" {
+            return Err(anyhow!(
+                "container lacks CA update tool and supported package manager"
+            ));
+        }
+
+        return Ok(());
+    }
+
+    let install_script = "if command -v update-ca-certificates >/dev/null 2>&1 || command -v update-ca-trust >/dev/null 2>&1; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y ca-certificates; elif command -v apk >/dev/null 2>&1; then apk add --no-cache ca-certificates; elif command -v dnf >/dev/null 2>&1; then dnf install -y ca-certificates; elif command -v yum >/dev/null 2>&1; then yum install -y ca-certificates; elif command -v microdnf >/dev/null 2>&1; then microdnf install -y ca-certificates; elif command -v zypper >/dev/null 2>&1; then zypper --non-interactive install ca-certificates; elif command -v pacman >/dev/null 2>&1; then pacman -Sy --noconfirm ca-certificates; else echo \"unsupported package manager for ca-certificates install\"; exit 1; fi";
+    exec_in_container_root(container, &["sh", "-lc", install_script])
 }
 
 fn detect_patch_strategy(container: &str) -> Result<(String, String)> {
