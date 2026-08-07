@@ -1,8 +1,10 @@
 pub mod apply;
 pub mod filtering;
+pub mod images;
 pub mod plan;
 pub mod scan;
 pub mod verify;
+pub mod workloads;
 
 use crate::cli::{SourceKind, TargetKind};
 use crate::providers::source::{macos_keychain::MacosKeychainSource, SourceProvider};

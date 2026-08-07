@@ -56,9 +56,36 @@ cargo run -- apply --dry-run --only-keywords netskope,inbev
 # Apply for real using only specific corporate roots
 cargo run -- apply --only-keywords netskope,inbev
 
+# Patch specific containers with confirmation prompts
+cargo run -- apply --containers technology-samples-app-1 --interactive
+
+# Scope control (default: runtime,containers,images)
+cargo run -- apply --scope runtime,containers
+
+# Keep sync running continuously
+cargo run -- apply --watch --interval-secs 30
+
 # Verify target trust behavior (stub for now)
 cargo run -- verify --host registry.corp.local:443
 ```
+
+Notes for Rancher Desktop apply:
+
+- Uses `limactl shell` (instance `0` by default).
+- Writes managed certs into `/usr/local/share/ca-certificates/tbridge/` inside the VM.
+- Runs `update-ca-certificates` (or `update-ca-trust extract` when available).
+- Override instance with `TBRIDGE_RD_INSTANCE=<name>`.
+
+Notes for container/image patch (inside `apply`):
+
+- Uses `docker exec -u 0` to patch running containers.
+- Detects `update-ca-certificates` or `update-ca-trust extract` automatically.
+- Copies selected certs as `*.crt` and runs system CA update inside each container.
+- Patches local images too (default `--images-mode user`, configurable with `user|all|none`).
+- Commits patched image variants with suffix `-tb-<bundle_hash>`.
+- `--dry-run` prints detected strategy without modifying containers.
+- Incremental sync uses persisted state to skip containers/images already patched for the current bundle hash.
+- `--watch` runs repeated sync cycles and keeps retrying even if a cycle fails.
 
 ## Architecture Overview
 

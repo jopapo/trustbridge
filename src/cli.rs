@@ -1,5 +1,5 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap::ArgAction;
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "tbridge", version, about = "TrustBridge: host truststore sync")]
@@ -72,6 +72,20 @@ pub struct ApplyArgs {
     pub only_keywords: Vec<String>,
     #[arg(long, value_delimiter = ',', help = "Exclude certs matching any subject keyword")]
     pub exclude_keywords: Vec<String>,
+    #[arg(long, default_value_t = false, help = "Prompt confirmation per container")]
+    pub interactive: bool,
+    #[arg(long, value_delimiter = ',', help = "Container names (default: all running)")]
+    pub containers: Vec<String>,
+    #[arg(long, value_delimiter = ',', default_value = "runtime,containers,images", help = "Apply scopes: runtime,containers,images")]
+    pub scope: Vec<String>,
+    #[arg(long, default_value = "user", help = "Image selection mode: user|all|none")]
+    pub images_mode: String,
+    #[arg(long, default_value_t = 30, help = "Max number of images to patch")]
+    pub images_limit: usize,
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Continuously keep targets in sync")]
+    pub watch: bool,
+    #[arg(long, default_value_t = 30, help = "Watch loop interval in seconds")]
+    pub interval_secs: u64,
 }
 
 #[derive(Args, Debug)]

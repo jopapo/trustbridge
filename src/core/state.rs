@@ -1,12 +1,17 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct StateSnapshot {
     pub last_apply_at: Option<String>,
     pub applied_fingerprints: Vec<String>,
+    pub last_bundle_hash: Option<String>,
+    pub container_bundle_hashes: HashMap<String, String>,
+    pub image_bundle_hashes: HashMap<String, String>,
 }
 
 impl StateSnapshot {
