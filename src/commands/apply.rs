@@ -1,4 +1,4 @@
-use crate::cli::ApplyArgs;
+use crate::cli::{ApplyArgs, TargetKind};
 use crate::commands::filtering::{apply_default_filter, FilterOptions};
 use crate::commands::images::{patch_images, ImagePatchOptions};
 use crate::commands::workloads::{patch_workloads, WorkloadPatchOptions};
@@ -6,7 +6,7 @@ use crate::commands::{resolve_source, resolve_target};
 use crate::core::engine::SyncEngine;
 use crate::core::paths;
 use crate::core::state::StateSnapshot;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
 use std::thread;
 use std::time::Duration;
@@ -14,10 +14,9 @@ use time::OffsetDateTime;
 
 pub fn run(args: ApplyArgs) -> Result<()> {
     let source = resolve_source(args.source);
-    let target = resolve_target(args.target);
 
     loop {
-        if let Err(error) = apply_once(&args, source.as_ref(), target.as_ref()) {
+        if let Err(error) = apply_once(&args, source.as_ref()) {
             if args.watch {
                 println!("watch: cycle failed: {error}");
             } else {
@@ -39,7 +38,6 @@ pub fn run(args: ApplyArgs) -> Result<()> {
 fn apply_once(
     args: &ApplyArgs,
     source: &dyn crate::providers::source::SourceProvider,
-    target: &dyn crate::providers::target::TargetProvider,
 ) -> Result<()> {
     let state_path = paths::state_path();
     let mut snapshot = StateSnapshot::load(&state_path)?;
@@ -66,33 +64,50 @@ fn apply_once(
         .collect();
 
     if has_scope(&args.scope, "runtime") {
-        let target_fingerprints = match target.current_fingerprints() {
-            Ok(value) => value,
-            Err(error) if args.dry_run => {
-                println!("warning: could not read target fingerprints during dry-run: {error}");
-                Vec::new()
+        let mut runtime_available = 0usize;
+        for target in resolve_runtime_targets(args.target) {
+            let target_fingerprints = match target.current_fingerprints() {
+                Ok(value) => {
+                    runtime_available += 1;
+                    value
+                }
+                Err(error) => {
+                    println!("warning: runtime target `{}` unavailable: {error}", target.name());
+                    continue;
+                }
+            };
+
+            let plan = SyncEngine::build_plan_from_data(
+                source_certs.clone(),
+                target_fingerprints,
+                snapshot.applied_fingerprints.clone(),
+            );
+
+            println!("applying runtime plan to {}", target.name());
+            println!("- add: {}", plan.to_add.len());
+            println!("- remove: {}", plan.to_remove.len());
+            println!(
+                "- managed fingerprints in state: {}",
+                snapshot.applied_fingerprints.len()
+            );
+
+            target.apply_plan(&plan, args.dry_run)?;
+
+            if !args.dry_run {
+                snapshot.applied_fingerprints = desired_fingerprints.clone();
             }
-            Err(error) => return Err(error),
-        };
+        }
 
-        let plan = SyncEngine::build_plan_from_data(
-            source_certs.clone(),
-            target_fingerprints,
-            snapshot.applied_fingerprints.clone(),
-        );
-
-        println!("applying runtime plan to {}", target.name());
-        println!("- add: {}", plan.to_add.len());
-        println!("- remove: {}", plan.to_remove.len());
-        println!(
-            "- managed fingerprints in state: {}",
-            snapshot.applied_fingerprints.len()
-        );
-
-        target.apply_plan(&plan, args.dry_run)?;
-
-        if !args.dry_run {
-            snapshot.applied_fingerprints = desired_fingerprints.clone();
+        if runtime_available == 0 {
+            if has_scope(&args.scope, "containers") || has_scope(&args.scope, "images") {
+                println!(
+                    "warning: no compatible runtime target detected; continuing with non-runtime scopes"
+                );
+            } else {
+                return Err(anyhow!(
+                    "no compatible runtime target detected; start rancher-desktop/colima or pass --scope containers,images"
+                ));
+            }
         }
     } else {
         println!("runtime patch skipped (scope)");
@@ -106,6 +121,7 @@ fn apply_once(
                 dry_run: args.dry_run,
                 interactive: args.interactive,
                 containers: args.containers.clone(),
+                include_orchestrator: args.include_orchestrator,
                 bundle_hash: bundle_hash.clone(),
                 known_hashes: snapshot.container_bundle_hashes.clone(),
             },
@@ -124,6 +140,7 @@ fn apply_once(
             &ImagePatchOptions {
                 dry_run: args.dry_run,
                 mode: args.images_mode.clone(),
+                include_orchestrator: args.include_orchestrator,
                 limit: args.images_limit,
                 bundle_hash: bundle_hash.clone(),
                 known_hashes: snapshot.image_bundle_hashes.clone(),
@@ -149,6 +166,16 @@ fn apply_once(
 
 fn has_scope(scopes: &[String], name: &str) -> bool {
     scopes.iter().any(|scope| scope.eq_ignore_ascii_case(name))
+}
+
+fn resolve_runtime_targets(target: TargetKind) -> Vec<Box<dyn crate::providers::target::TargetProvider>> {
+    match target {
+        TargetKind::Auto => vec![
+            resolve_target(TargetKind::RancherDesktop),
+            resolve_target(TargetKind::Colima),
+        ],
+        _ => vec![resolve_target(target)],
+    }
 }
 
 fn bundle_hash(certs: &[crate::core::certificate::Certificate]) -> String {

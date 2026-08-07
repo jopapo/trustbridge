@@ -9,6 +9,7 @@ pub struct WorkloadPatchOptions {
     pub dry_run: bool,
     pub interactive: bool,
     pub containers: Vec<String>,
+    pub include_orchestrator: bool,
     pub bundle_hash: String,
     pub known_hashes: HashMap<String, String>,
 }
@@ -48,6 +49,11 @@ pub fn patch_workloads(
     } else {
         options.containers.clone()
     };
+
+    let containers: Vec<String> = containers
+        .into_iter()
+        .filter(|container| options.include_orchestrator || !is_orchestrator_container(container))
+        .collect();
 
     if containers.is_empty() {
         println!("workload patch: no running containers selected");
@@ -95,11 +101,15 @@ pub fn patch_workloads(
         result.patched, result.skipped, result.failed
     );
 
-    if result.failed > 0 {
-        return Err(anyhow!("one or more containers failed to patch"));
-    }
-
     Ok(result)
+}
+
+fn is_orchestrator_container(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("k8s_")
+        || lower.contains("_kube-system_")
+        || lower.contains("_kube-public_")
+        || lower.contains("_kube-node-lease_")
 }
 
 fn confirm_container(container: &str) -> Result<bool> {

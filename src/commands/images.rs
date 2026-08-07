@@ -8,6 +8,7 @@ use std::process::{Command, Stdio};
 pub struct ImagePatchOptions {
     pub dry_run: bool,
     pub mode: String,
+    pub include_orchestrator: bool,
     pub limit: usize,
     pub bundle_hash: String,
     pub known_hashes: HashMap<String, String>,
@@ -49,6 +50,10 @@ pub fn patch_images(
             "invalid images mode: {} (expected user|all|none)",
             options.mode
         ));
+    }
+
+    if !options.include_orchestrator {
+        images.retain(|image| !is_orchestrator_image(&image.repository));
     }
 
     if options.limit > 0 && images.len() > options.limit {
@@ -99,10 +104,6 @@ pub fn patch_images(
         "image patch summary: patched={}, skipped={}, failed={}",
         result.patched, result.skipped, result.failed
     );
-    if result.failed > 0 {
-        return Err(anyhow!("one or more images failed to patch"));
-    }
-
     Ok(result)
 }
 
@@ -177,6 +178,17 @@ fn is_user_image(repository: &str) -> bool {
     !blocked_prefixes
         .iter()
         .any(|prefix| lower.starts_with(prefix))
+}
+
+fn is_orchestrator_image(repository: &str) -> bool {
+    let lower = repository.to_ascii_lowercase();
+    lower.contains("rancher")
+        || lower.contains("k3s")
+        || lower.contains("kubernetes")
+        || lower.contains("coredns")
+        || lower.contains("traefik")
+        || lower.starts_with("registry.k8s.io/")
+        || lower.starts_with("k8s.gcr.io/")
 }
 
 fn bundle_suffix(certs: &[Certificate]) -> String {

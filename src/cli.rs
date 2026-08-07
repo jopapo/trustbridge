@@ -24,6 +24,8 @@ pub enum SourceKind {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum TargetKind {
+    #[value(name = "auto")]
+    Auto,
     #[value(name = "rancher-desktop")]
     RancherDesktop,
     #[value(name = "colima")]
@@ -92,7 +94,7 @@ pub struct PlanArgs {
 pub struct ApplyArgs {
     #[arg(long, value_enum, default_value = "macos-keychain")]
     pub source: SourceKind,
-    #[arg(long, value_enum, default_value = "rancher-desktop")]
+    #[arg(long, value_enum, default_value = "auto")]
     pub target: TargetKind,
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
     pub dry_run: bool,
@@ -120,6 +122,12 @@ pub struct ApplyArgs {
         help = "Prompt confirmation per container"
     )]
     pub interactive: bool,
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include orchestrator/system containers and images"
+    )]
+    pub include_orchestrator: bool,
     #[arg(
         long,
         value_delimiter = ',',

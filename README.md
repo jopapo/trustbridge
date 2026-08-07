@@ -50,6 +50,10 @@ cargo run -- plan --only-keywords netskope,inbev
 # Execute sync (real apply by default)
 cargo run -- apply
 
+# Auto target mode checks compatible runtimes (rancher-desktop, colima)
+# and applies to available ones
+cargo run -- apply --target auto
+
 # Execute sync against Colima
 cargo run -- apply --target colima
 
@@ -64,6 +68,9 @@ cargo run -- apply --containers technology-samples-app-1 --interactive
 
 # Scope control (default: runtime,containers,images)
 cargo run -- apply --scope runtime,containers
+
+# Include orchestrator/system workloads and images (default is user-focus)
+cargo run -- apply --include-orchestrator
 
 # Keep sync running continuously
 cargo run -- apply --watch --interval-secs 30
@@ -87,6 +94,8 @@ Notes for Colima apply:
 Notes for container/image patch (inside `apply`):
 
 - Uses `docker exec -u 0` to patch running containers.
+- By default, focuses on user containers/images and skips orchestrator/system ones.
+- Use `--include-orchestrator` to include k8s/system workloads and images.
 - Detects `update-ca-certificates` or `update-ca-trust extract` automatically.
 - If CA tooling is missing, attempts to install `ca-certificates` as root via distro package manager.
 - Copies selected certs as `*.crt` and runs system CA update inside each container.

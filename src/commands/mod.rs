@@ -20,6 +20,7 @@ pub fn resolve_source(source: SourceKind) -> Box<dyn SourceProvider> {
 
 pub fn resolve_target(target: TargetKind) -> Box<dyn TargetProvider> {
     match target {
+        TargetKind::Auto => Box::new(RancherDesktopTarget),
         TargetKind::RancherDesktop => Box::new(RancherDesktopTarget),
         TargetKind::Colima => Box::new(ColimaTarget),
     }
