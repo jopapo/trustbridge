@@ -129,7 +129,7 @@ Main modules:
 - `src/cli.rs`: command/args definitions
 - `src/core/`: engine, plan, state, certificate model
 - `src/providers/source/macos_keychain.rs`: source provider
-- `src/providers/target/rancher_desktop.rs`: target provider (stub)
+- `src/providers/target/`: runtime target providers (`rancher-desktop`, `colima`)
 - `docs/`: architecture, roadmap, ADRs, security notes
 - `examples/`: sample configuration
 
@@ -142,8 +142,14 @@ Main modules:
 - `docs/adr/ADR-0001-rust-and-provider-architecture.md`
 - `docs/adr/ADR-0002-macos-to-rancher-desktop-mvp.md`
 - `docs/adr/ADR-0003-safety-and-rollout-strategy.md`
+- `docs/adr/ADR-0004-filtering-and-corporate-ca-selection.md`
+- `docs/adr/ADR-0005-unified-apply-scopes-and-continuous-sync.md`
+- `docs/adr/ADR-0006-runtime-target-auto-detection.md`
+- `docs/adr/ADR-0007-incremental-state-and-bundle-hash.md`
+- `docs/adr/ADR-0008-ca-tooling-bootstrap.md`
 - `docs/threat-model.md`
 - `CONTRIBUTING.md`
+- `CHANGELOG.md`
 
 ## Build & Validate
 

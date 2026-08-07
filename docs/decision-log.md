@@ -10,7 +10,7 @@ This file summarizes major project decisions with context and rationale.
 
 ## 2026-08-07 - MVP scope: macOS -> Rancher Desktop
 
-- Need: solve immediate corporate TLS pain for macOS developers using Rancher Desktop.
+- Need: solve immediate corporate TLS pain for macOS developers using Rancher Desktop runtime.
 - Decision: prioritize source=`macos-keychain`, target=`rancher-desktop`.
 - Why: narrow scope enables fast validation and community feedback.
 
@@ -23,5 +23,35 @@ This file summarizes major project decisions with context and rationale.
 ## 2026-08-07 - Safety-first rollout
 
 - Need: prevent trust misconfiguration and risky default behavior.
-- Decision: keep target integration as stub first, dry-run friendly flow.
-- Why: build confidence before automating VM truststore mutation.
+- Decision: explicit scan/plan/apply flow and conservative rollout sequencing.
+- Why: build confidence before broad truststore mutation automation.
+
+## 2026-08-07 - ADR-0004 Default corporate CA filtering
+
+- Need: avoid noisy/default syncing of public/OS roots.
+- Decision: self-signed + corporate-focused default with keyword/public-root overrides.
+- Why: safer and more relevant defaults for enterprise proxy use cases.
+
+## 2026-08-07 - ADR-0005 Unified apply scopes + watch
+
+- Need: one operational command for runtime + workloads + images.
+- Decision: `apply` orchestrates all scopes with `--scope` and `--watch`.
+- Why: improves developer ergonomics and automation consistency.
+
+## 2026-08-07 - ADR-0006 Runtime auto-target
+
+- Need: support mixed Rancher/Desktop and Colima environments.
+- Decision: add `target=auto` and tolerant target availability logic.
+- Why: reduces setup friction and avoids hard failures in partial environments.
+
+## 2026-08-07 - ADR-0007 Incremental bundle hash sync
+
+- Need: reduce repetitive patch cycles and watch-mode overhead.
+- Decision: persist bundle hash state per container/image target.
+- Why: enables efficient incremental synchronization.
+
+## 2026-08-07 - ADR-0008 CA tooling bootstrap
+
+- Need: handle images/targets missing CA update tooling.
+- Decision: attempt `ca-certificates` install via supported package managers.
+- Why: maximize compatibility across diverse runtimes and base images.

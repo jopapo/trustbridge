@@ -17,6 +17,7 @@ Thanks for considering a contribution to TrustBridge.
 - preserve provider contract boundaries
 - prefer explicit errors over silent behavior
 - update docs/ADRs when changing architecture or behavior
+- update `CHANGELOG.md` for user-visible changes
 
 ## Suggested Workflow
 
@@ -30,3 +31,12 @@ Thanks for considering a contribution to TrustBridge.
 - `fix:` bug fix
 - `docs:` documentation-only change
 - `refactor:` structural improvement with no behavior change
+
+## Changelog Policy
+
+TrustBridge maintains a human-curated changelog in `CHANGELOG.md`:
+
+- Keep entries under `## [Unreleased]` until release tag is cut.
+- Categorize entries under `Added`, `Changed`, `Fixed`, `Removed`, `Security`, or `Documentation`.
+- At release time, move unreleased entries into a versioned section (for example `## [0.2.0] - YYYY-MM-DD`).
+- Ensure GitHub release notes align with changelog highlights.
