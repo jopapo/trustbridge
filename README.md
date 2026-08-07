@@ -32,11 +32,29 @@ TrustBridge aims to solve this once at the host/runtime boundary, instead of per
 # Scan trusted certs from macOS keychain
 cargo run -- scan
 
+# Scan self-signed certs including public/OS roots
+cargo run -- scan --include-public-roots
+
+# Scan only specific corporate roots
+cargo run -- scan --only-keywords netskope,inbev
+
+# Scan all certs (disable default self-signed filter)
+cargo run -- scan --all
+
 # Show sync plan between source and target
 cargo run -- plan
 
-# Execute sync (dry-run true by default)
-cargo run -- apply --dry-run true
+# Plan using only specific corporate roots
+cargo run -- plan --only-keywords netskope,inbev
+
+# Execute sync (real apply by default)
+cargo run -- apply
+
+# Dry-run using only specific corporate roots
+cargo run -- apply --dry-run --only-keywords netskope,inbev
+
+# Apply for real using only specific corporate roots
+cargo run -- apply --only-keywords netskope,inbev
 
 # Verify target trust behavior (stub for now)
 cargo run -- verify --host registry.corp.local:443
@@ -91,6 +109,15 @@ cargo test
 ```
 
 If dependency fetch fails in restricted environments, run in an environment with crates.io access first.
+
+## State & Config Paths
+
+- Installed mode (default):
+  - macOS: `~/Library/Application Support/trustbridge/`
+  - Linux: `$XDG_DATA_HOME/trustbridge/` (fallback `~/.local/share/trustbridge/`)
+  - Windows: `%APPDATA%/trustbridge/`
+- Dev-local mode is auto-enabled when running via `cargo run`.
+- You can also force dev-local with `TBRIDGE_DEV_LOCAL=1` to use `.tbridge/` in the project directory.
 
 ## License
 
