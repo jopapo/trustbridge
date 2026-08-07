@@ -72,7 +72,10 @@ fn apply_once(
                     value
                 }
                 Err(error) => {
-                    println!("warning: runtime target `{}` unavailable: {error}", target.name());
+                    println!(
+                        "warning: runtime target `{}` unavailable: {error}",
+                        target.name()
+                    );
                     continue;
                 }
             };
@@ -168,7 +171,9 @@ fn has_scope(scopes: &[String], name: &str) -> bool {
     scopes.iter().any(|scope| scope.eq_ignore_ascii_case(name))
 }
 
-fn resolve_runtime_targets(target: TargetKind) -> Vec<Box<dyn crate::providers::target::TargetProvider>> {
+fn resolve_runtime_targets(
+    target: TargetKind,
+) -> Vec<Box<dyn crate::providers::target::TargetProvider>> {
     match target {
         TargetKind::Auto => vec![
             resolve_target(TargetKind::RancherDesktop),
