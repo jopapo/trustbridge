@@ -13,7 +13,10 @@ pub struct FilterStats {
     pub dropped: usize,
 }
 
-pub fn apply_default_filter(certs: Vec<Certificate>, opts: &FilterOptions) -> (Vec<Certificate>, FilterStats) {
+pub fn apply_default_filter(
+    certs: Vec<Certificate>,
+    opts: &FilterOptions,
+) -> (Vec<Certificate>, FilterStats) {
     let mut kept = Vec::new();
     let mut dropped = 0usize;
 
@@ -94,18 +97,15 @@ pub fn is_likely_public_or_os_ca(subject_lowercase: &str) -> bool {
         "ssl.com",
     ];
 
-    ROOT_MARKERS.iter().any(|marker| subject_lowercase.contains(marker))
+    ROOT_MARKERS
+        .iter()
+        .any(|marker| subject_lowercase.contains(marker))
 }
 
 pub fn is_self_signed_from_pem(pem: &str) -> Option<bool> {
     let mut child = Command::new("openssl")
         .args([
-            "x509",
-            "-noout",
-            "-subject",
-            "-issuer",
-            "-nameopt",
-            "RFC2253",
+            "x509", "-noout", "-subject", "-issuer", "-nameopt", "RFC2253",
         ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -177,7 +177,9 @@ mod tests {
 
     #[test]
     fn keeps_custom_corporate_cas() {
-        assert!(!is_likely_public_or_os_ca("cn=netskope root ca,o=netskope inc"));
+        assert!(!is_likely_public_or_os_ca(
+            "cn=netskope root ca,o=netskope inc"
+        ));
         assert!(!is_likely_public_or_os_ca("cn=ab inbev internal root ca"));
     }
 }

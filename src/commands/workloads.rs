@@ -25,7 +25,10 @@ pub fn patch_workloads(
     stats: &FilterStats,
     options: &WorkloadPatchOptions,
 ) -> Result<WorkloadPatchResult> {
-    println!("workload patch filter result: kept {} / dropped {}", stats.kept, stats.dropped);
+    println!(
+        "workload patch filter result: kept {} / dropped {}",
+        stats.kept, stats.dropped
+    );
     println!("workload patch certificates selected: {}", certs.len());
 
     let mut result = WorkloadPatchResult {

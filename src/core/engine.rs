@@ -10,7 +10,6 @@ impl SyncEngine {
         target_fingerprints: Vec<String>,
         managed_fingerprints: Vec<String>,
     ) -> SyncPlan {
-
         let source_set: HashSet<_> = source_certs
             .iter()
             .map(|certificate| certificate.fingerprint_sha256.clone())

@@ -36,13 +36,29 @@ pub struct ScanArgs {
     pub source: SourceKind,
     #[arg(long, default_value_t = false)]
     pub json: bool,
-    #[arg(long, default_value_t = false, help = "Include non-self-signed certificates")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include non-self-signed certificates"
+    )]
     pub all: bool,
-    #[arg(long, default_value_t = false, help = "Include likely OS/public root CAs")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include likely OS/public root CAs"
+    )]
     pub include_public_roots: bool,
-    #[arg(long, value_delimiter = ',', help = "Only include certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Only include certs matching any subject keyword"
+    )]
     pub only_keywords: Vec<String>,
-    #[arg(long, value_delimiter = ',', help = "Exclude certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Exclude certs matching any subject keyword"
+    )]
     pub exclude_keywords: Vec<String>,
 }
 
@@ -52,11 +68,23 @@ pub struct PlanArgs {
     pub source: SourceKind,
     #[arg(long, value_enum, default_value = "rancher-desktop")]
     pub target: TargetKind,
-    #[arg(long, default_value_t = false, help = "Include likely OS/public root CAs")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include likely OS/public root CAs"
+    )]
     pub include_public_roots: bool,
-    #[arg(long, value_delimiter = ',', help = "Only include certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Only include certs matching any subject keyword"
+    )]
     pub only_keywords: Vec<String>,
-    #[arg(long, value_delimiter = ',', help = "Exclude certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Exclude certs matching any subject keyword"
+    )]
     pub exclude_keywords: Vec<String>,
 }
 
@@ -68,19 +96,48 @@ pub struct ApplyArgs {
     pub target: TargetKind,
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
     pub dry_run: bool,
-    #[arg(long, default_value_t = false, help = "Include likely OS/public root CAs")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include likely OS/public root CAs"
+    )]
     pub include_public_roots: bool,
-    #[arg(long, value_delimiter = ',', help = "Only include certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Only include certs matching any subject keyword"
+    )]
     pub only_keywords: Vec<String>,
-    #[arg(long, value_delimiter = ',', help = "Exclude certs matching any subject keyword")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Exclude certs matching any subject keyword"
+    )]
     pub exclude_keywords: Vec<String>,
-    #[arg(long, default_value_t = false, help = "Prompt confirmation per container")]
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Prompt confirmation per container"
+    )]
     pub interactive: bool,
-    #[arg(long, value_delimiter = ',', help = "Container names (default: all running)")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        help = "Container names (default: all running)"
+    )]
     pub containers: Vec<String>,
-    #[arg(long, value_delimiter = ',', default_value = "runtime,containers,images", help = "Apply scopes: runtime,containers,images")]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_value = "runtime,containers,images",
+        help = "Apply scopes: runtime,containers,images"
+    )]
     pub scope: Vec<String>,
-    #[arg(long, default_value = "user", help = "Image selection mode: user|all|none")]
+    #[arg(
+        long,
+        default_value = "user",
+        help = "Image selection mode: user|all|none"
+    )]
     pub images_mode: String,
     #[arg(long, default_value_t = 30, help = "Max number of images to patch")]
     pub images_limit: usize,

@@ -69,9 +69,7 @@ fn apply_once(
         let target_fingerprints = match target.current_fingerprints() {
             Ok(value) => value,
             Err(error) if args.dry_run => {
-                println!(
-                    "warning: could not read target fingerprints during dry-run: {error}"
-                );
+                println!("warning: could not read target fingerprints during dry-run: {error}");
                 Vec::new()
             }
             Err(error) => return Err(error),

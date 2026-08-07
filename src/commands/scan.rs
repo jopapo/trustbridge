@@ -35,7 +35,10 @@ pub fn run(args: ScanArgs) -> Result<()> {
     println!("source: {}", source.name());
     if !args.all {
         println!("filter: self-signed custom CAs");
-        println!("filter result: kept {} / dropped {}", stats.kept, stats.dropped);
+        println!(
+            "filter result: kept {} / dropped {}",
+            stats.kept, stats.dropped
+        );
     }
     println!("certificates found: {}", certs.len());
 

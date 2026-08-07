@@ -8,7 +8,9 @@ pub mod workloads;
 
 use crate::cli::{SourceKind, TargetKind};
 use crate::providers::source::{macos_keychain::MacosKeychainSource, SourceProvider};
-use crate::providers::target::{colima::ColimaTarget, rancher_desktop::RancherDesktopTarget, TargetProvider};
+use crate::providers::target::{
+    colima::ColimaTarget, rancher_desktop::RancherDesktopTarget, TargetProvider,
+};
 
 pub fn resolve_source(source: SourceKind) -> Box<dyn SourceProvider> {
     match source {

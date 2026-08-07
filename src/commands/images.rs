@@ -20,7 +20,10 @@ pub struct ImagePatchResult {
     pub failed: usize,
 }
 
-pub fn patch_images(certs: &[Certificate], options: &ImagePatchOptions) -> Result<ImagePatchResult> {
+pub fn patch_images(
+    certs: &[Certificate],
+    options: &ImagePatchOptions,
+) -> Result<ImagePatchResult> {
     let mut result = ImagePatchResult {
         updated_hashes: options.known_hashes.clone(),
         patched: 0,
@@ -138,11 +141,7 @@ fn list_images() -> Result<Vec<LocalImage>> {
         let repository = parts.next().unwrap_or_default().trim();
         let tag = parts.next().unwrap_or_default().trim();
 
-        if repository.is_empty()
-            || tag.is_empty()
-            || repository == "<none>"
-            || tag == "<none>"
-        {
+        if repository.is_empty() || tag.is_empty() || repository == "<none>" || tag == "<none>" {
             continue;
         }
 
@@ -158,8 +157,8 @@ fn list_images() -> Result<Vec<LocalImage>> {
 fn is_user_image(repository: &str) -> bool {
     let lower = repository.to_ascii_lowercase();
     let blocked_exact = [
-        "alpine", "ubuntu", "debian", "python", "node", "busybox", "nginx", "redis",
-        "postgres", "mysql", "golang", "rust", "openjdk",
+        "alpine", "ubuntu", "debian", "python", "node", "busybox", "nginx", "redis", "postgres",
+        "mysql", "golang", "rust", "openjdk",
     ];
 
     if blocked_exact.contains(&lower.as_str()) {
@@ -175,7 +174,9 @@ fn is_user_image(repository: &str) -> bool {
         "ghcr.io/",
     ];
 
-    !blocked_prefixes.iter().any(|prefix| lower.starts_with(prefix))
+    !blocked_prefixes
+        .iter()
+        .any(|prefix| lower.starts_with(prefix))
 }
 
 fn bundle_suffix(certs: &[Certificate]) -> String {
@@ -208,8 +209,8 @@ fn patch_single_image(
     }
 
     let container_id = create_patch_container(&source_ref)?;
-    let result =
-        patch_image_container(&container_id, certs).and_then(|_| commit_image(&container_id, &target_ref));
+    let result = patch_image_container(&container_id, certs)
+        .and_then(|_| commit_image(&container_id, &target_ref));
     let cleanup_result = remove_container(&container_id);
 
     if let Err(error) = result {
@@ -250,7 +251,9 @@ fn create_patch_container(image_ref: &str) -> Result<String> {
         .with_context(|| format!("failed to start temp container `{container_id}`"))?;
 
     if !status.success() {
-        return Err(anyhow!("docker start failed for temp container `{container_id}`"));
+        return Err(anyhow!(
+            "docker start failed for temp container `{container_id}`"
+        ));
     }
 
     Ok(container_id)
@@ -259,7 +262,10 @@ fn create_patch_container(image_ref: &str) -> Result<String> {
 fn patch_image_container(container_id: &str, certs: &[Certificate]) -> Result<()> {
     ensure_ca_update_tool(container_id)?;
     let (cert_dir, update_cmd) = detect_patch_strategy(container_id)?;
-    exec_in_container(container_id, &["sh", "-lc", &format!("mkdir -p '{cert_dir}'")])?;
+    exec_in_container(
+        container_id,
+        &["sh", "-lc", &format!("mkdir -p '{cert_dir}'")],
+    )?;
 
     for certificate in certs {
         let path = format!("{cert_dir}/{}.crt", certificate.fingerprint_sha256);
@@ -280,7 +286,9 @@ fn detect_patch_strategy(container_id: &str) -> Result<(String, String)> {
     let output = exec_in_container_capture(container_id, &["sh", "-lc", script])?;
     let line = output.trim();
     if line == "UNSUPPORTED" || line.is_empty() {
-        return Err(anyhow!("image does not expose update-ca-certificates/update-ca-trust"));
+        return Err(anyhow!(
+            "image does not expose update-ca-certificates/update-ca-trust"
+        ));
     }
 
     let mut parts = line.splitn(2, '|');
@@ -300,7 +308,9 @@ fn commit_image(container_id: &str, target_ref: &str) -> Result<()> {
         .with_context(|| format!("failed to commit temp container `{container_id}`"))?;
 
     if !status.success() {
-        return Err(anyhow!("docker commit failed for container `{container_id}`"));
+        return Err(anyhow!(
+            "docker commit failed for container `{container_id}`"
+        ));
     }
 
     Ok(())
@@ -313,7 +323,9 @@ fn remove_container(container_id: &str) -> Result<()> {
         .with_context(|| format!("failed to remove temp container `{container_id}`"))?;
 
     if !status.success() {
-        return Err(anyhow!("docker rm failed for temp container `{container_id}`"));
+        return Err(anyhow!(
+            "docker rm failed for temp container `{container_id}`"
+        ));
     }
 
     Ok(())
@@ -350,7 +362,9 @@ fn exec_in_container_capture(container_id: &str, args: &[&str]) -> Result<String
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("docker exec capture failed for `{container_id}`: {stderr}"));
+        return Err(anyhow!(
+            "docker exec capture failed for `{container_id}`: {stderr}"
+        ));
     }
 
     String::from_utf8(output.stdout).context("invalid UTF-8 from docker exec output")
@@ -383,7 +397,9 @@ fn write_file_in_container(container_id: &str, path: &str, content: &str) -> Res
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("docker exec write failed for `{container_id}`: {stderr}"));
+        return Err(anyhow!(
+            "docker exec write failed for `{container_id}`: {stderr}"
+        ));
     }
 
     Ok(())

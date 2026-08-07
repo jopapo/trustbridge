@@ -63,7 +63,12 @@ fn platform_data_dir() -> Option<PathBuf> {
     }
 
     let home = env::var("HOME").ok()?;
-    Some(PathBuf::from(home).join(".local").join("share").join(APP_NAME))
+    Some(
+        PathBuf::from(home)
+            .join(".local")
+            .join("share")
+            .join(APP_NAME),
+    )
 }
 
 fn platform_config_dir() -> Option<PathBuf> {

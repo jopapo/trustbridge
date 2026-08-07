@@ -20,7 +20,11 @@ impl SourceProvider for MacosKeychainSource {
             anyhow::bail!("no keychains found to scan");
         }
 
-        let mut args = vec!["find-certificate".to_string(), "-a".to_string(), "-p".to_string()];
+        let mut args = vec![
+            "find-certificate".to_string(),
+            "-a".to_string(),
+            "-p".to_string(),
+        ];
         args.extend(keychains);
 
         let output = Command::new("security")
@@ -161,24 +165,28 @@ DEF\n\
     fn parses_subject_output_with_prefix() {
         let input = "subject=CN=Example Root CA,O=Example Corp,C=US\n";
         let parsed = parse_subject_output(input);
-        assert_eq!(parsed.as_deref(), Some("CN=Example Root CA,O=Example Corp,C=US"));
+        assert_eq!(
+            parsed.as_deref(),
+            Some("CN=Example Root CA,O=Example Corp,C=US")
+        );
     }
 
     #[test]
     fn parses_subject_output_without_prefix() {
         let input = "CN=Example Root CA,O=Example Corp,C=US\n";
         let parsed = parse_subject_output(input);
-        assert_eq!(parsed.as_deref(), Some("CN=Example Root CA,O=Example Corp,C=US"));
+        assert_eq!(
+            parsed.as_deref(),
+            Some("CN=Example Root CA,O=Example Corp,C=US")
+        );
     }
 
     #[test]
     fn scan_keychains_excludes_system_root_store() {
         let keychains = scan_keychains();
-        assert!(
-            !keychains
-                .iter()
-                .any(|path| path.contains("SystemRootCertificates.keychain"))
-        );
+        assert!(!keychains
+            .iter()
+            .any(|path| path.contains("SystemRootCertificates.keychain")));
     }
 
     #[test]
