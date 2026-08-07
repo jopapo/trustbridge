@@ -15,6 +15,10 @@ use time::OffsetDateTime;
 pub fn run(args: ApplyArgs) -> Result<()> {
     let source = resolve_source(args.source);
 
+    if args.dry_run {
+        println!("mode: DRY-RUN (no changes will be persisted)");
+    }
+
     loop {
         if let Err(error) = apply_once(&args, source.as_ref()) {
             if args.watch {
@@ -72,10 +76,16 @@ fn apply_once(
                     value
                 }
                 Err(error) => {
-                    println!(
-                        "warning: runtime target `{}` unavailable: {error}",
-                        target.name()
-                    );
+                    if target.name() == "colima" {
+                        println!(
+                            "warning: runtime target `colima` unavailable: {error}\n  hint: colima uses Lima; verify profile/instance (default `colima`) or set TBRIDGE_COLIMA_INSTANCE=<profile>."
+                        );
+                    } else {
+                        println!(
+                            "warning: runtime target `{}` unavailable: {error}",
+                            target.name()
+                        );
+                    }
                     continue;
                 }
             };
