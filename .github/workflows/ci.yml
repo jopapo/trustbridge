@@ -19,6 +19,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
+      - name: Debug module layout
+        run: |
+          pwd
+          git rev-parse HEAD
+          find src/providers -maxdepth 4 -type f | sort
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Build
