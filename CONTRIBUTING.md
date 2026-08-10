@@ -39,6 +39,13 @@ For automated semantic versioning with Release Please:
 - `feat:` triggers a MINOR release
 - `fix:` triggers a PATCH release
 - include `!` (for example `feat!:`) or a `BREAKING CHANGE:` footer to trigger a MAJOR release
+- to force a specific version in a PR merge commit body, use `Release-As: X.Y.Z`
+
+Example squash commit body line:
+
+```text
+Release-As: 0.2.0
+```
 
 ## Merge Strategy (Version Planning)
 
