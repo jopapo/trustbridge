@@ -32,11 +32,16 @@ Thanks for considering a contribution to TrustBridge.
 - `docs:` documentation-only change
 - `refactor:` structural improvement with no behavior change
 
+For automated semantic versioning with Release Please:
+
+- `feat:` triggers a MINOR release
+- `fix:` triggers a PATCH release
+- include `!` (for example `feat!:`) or a `BREAKING CHANGE:` footer to trigger a MAJOR release
+
 ## Changelog Policy
 
 TrustBridge maintains a human-curated changelog in `CHANGELOG.md`:
 
-- Keep entries under `## [Unreleased]` until release tag is cut.
-- Categorize entries under `Added`, `Changed`, `Fixed`, `Removed`, `Security`, or `Documentation`.
-- At release time, move unreleased entries into a versioned section (for example `## [0.2.0] - YYYY-MM-DD`).
-- Ensure GitHub release notes align with changelog highlights.
+- Release Please now manages release PRs, changelog updates, and version tagging from commit history.
+- Keep commit messages/PR titles consistent with conventional commits.
+- For manual changelog edits, preserve Keep a Changelog structure.

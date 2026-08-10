@@ -2,6 +2,7 @@
 
 ![CI](https://github.com/jopapo/trustbridge/actions/workflows/ci.yml/badge.svg)
 ![Release](https://github.com/jopapo/trustbridge/actions/workflows/release.yml/badge.svg)
+![Release Please](https://github.com/jopapo/trustbridge/actions/workflows/release-please.yml/badge.svg)
 ![GitHub tag](https://img.shields.io/github/v/tag/jopapo/trustbridge)
 ![License](https://img.shields.io/github/license/jopapo/trustbridge)
 
@@ -166,6 +167,12 @@ cargo test
 ```
 
 If dependency fetch fails in restricted environments, run in an environment with crates.io access first.
+
+## Versioning & Releases
+
+- Semantic versioning is automated via Release Please from commits merged into `main`.
+- Stable tags follow `vX.Y.Z`; pre-releases can use `vX.Y.Z-alpha.N`, `-beta.N`, or `-rc.N`.
+- Tag-based binary publication remains handled by GitHub Actions release workflow.
 
 ## State & Config Paths
 

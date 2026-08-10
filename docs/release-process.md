@@ -5,42 +5,40 @@ This document defines the release checklist and commands for TrustBridge.
 ## Preconditions
 
 - `main` is passing CI (`fmt`, `build`, `test`).
-- Release notes for user-visible changes are prepared in `CHANGELOG.md`.
+- Commits and PR titles follow conventional commit semantics (`feat`, `fix`, etc.).
+- PR title semantic check workflow is green.
 
-## Checklist
+## Automated Flow (Release Please)
 
-- [ ] Confirm latest `main` is green in GitHub Actions.
-- [ ] Update `CHANGELOG.md`:
-  - [ ] Move items from `## [Unreleased]` into a new version section.
-  - [ ] Add release date (`YYYY-MM-DD`).
-- [ ] Commit and push changelog update.
-- [ ] Create annotated git tag `vX.Y.Z`.
-- [ ] Push tag to origin.
-- [ ] Wait for `release.yml` workflow completion.
-- [ ] Verify GitHub Release has all artifacts:
-  - Linux binary
-  - macOS binary
-  - Windows binary
-- [ ] Recreate/update `## [Unreleased]` section for next iteration.
+- [ ] Merge changes into `main` using conventional commits.
+- [ ] Wait for `Release Please` workflow to open/update a release PR.
+- [ ] Review release PR (version bump + changelog).
+- [ ] Merge release PR.
+- [ ] Confirm generated tag `vX.Y.Z` was created.
+- [ ] Confirm `release.yml` ran from the tag.
+- [ ] Verify GitHub Release contains Linux/macOS/Windows artifacts.
 
-## Commands
+## Manual Override (Optional)
 
 ```bash
 git checkout main
 git pull
-
-# edit CHANGELOG.md
-
-git add CHANGELOG.md
-git commit -m "docs(changelog): release vX.Y.Z"
-git push
-
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 ```
 
 ## Notes
 
-- Release workflow triggers on pushed tags matching `v*`.
-- Release assets are generated from CI builds across supported OS targets.
-- If a release build fails, fix on `main`, then create a new tag (for example `vX.Y.Z+1`).
+- `Release Please` workflow runs on pushes to `main` and creates release PRs automatically.
+- Existing `release.yml` still publishes binaries on pushed tags (`v*`).
+- Pre-releases can still be created manually with tags like `v0.2.0-alpha.1` when needed.
+
+## First Release with Release Please
+
+1. Merge this Release Please setup to `main`.
+2. Wait for `Release Please` workflow to open the first release PR.
+3. Review the release PR contents (version bump + changelog updates).
+4. Merge the release PR.
+5. Confirm tag creation (`vX.Y.Z`) in repository tags.
+6. Confirm `Release` workflow ran for that tag and published artifacts.
+7. Validate GitHub Release page assets and notes.
