@@ -1,9 +1,15 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   release:
     types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-binaries:
@@ -68,3 +74,5 @@ jobs:
           tag_name: ${{ github.event.release.tag_name || github.ref_name }}
           files: artifacts/**
           generate_release_notes: true
+          append_body: true
+          fail_on_unmatched_files: true
