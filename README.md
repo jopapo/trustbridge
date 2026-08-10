@@ -81,7 +81,7 @@ cargo run -- apply --include-orchestrator
 # Keep sync running continuously
 cargo run -- apply --watch --interval-secs 30
 
-# Verify target trust behavior (stub for now)
+# Verify target trust behavior
 cargo run -- verify --host registry.corp.local:443
 ```
 
@@ -107,7 +107,7 @@ Notes for container/image patch (inside `apply`):
 - Copies selected certs as `*.crt` and runs system CA update inside each container.
 - Patches local images too (default `--images-mode user`, configurable with `user|all|none`).
 - Commits patched image variants with suffix `-tb-<bundle_hash>`.
-- `--dry-run` prints detected strategy without modifying containers.
+- `--dry-run` prints detected strategy without modifying targets.
 - Incremental sync uses persisted state to skip containers/images already patched for the current bundle hash.
 - `--watch` runs repeated sync cycles and keeps retrying even if a cycle fails.
 
