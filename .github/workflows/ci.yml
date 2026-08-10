@@ -18,7 +18,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v3
       - name: Debug module layout
         shell: pwsh
         run: |
