@@ -1,5 +1,10 @@
 # TrustBridge (`tbridge`)
 
+![CI](https://github.com/jopapo/trustbridge/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/jopapo/trustbridge/actions/workflows/release.yml/badge.svg)
+![GitHub tag](https://img.shields.io/github/v/tag/jopapo/trustbridge)
+![License](https://img.shields.io/github/license/jopapo/trustbridge)
+
 TrustBridge is an open-source CLI to sync trusted host certificates into local container runtimes.
 
 Initial focus (MVP): **macOS Keychain -> Rancher Desktop / Colima**.
@@ -139,6 +144,7 @@ Main modules:
 - `docs/roadmap.md`
 - `docs/decision-log.md`
 - `docs/decision-process.md`
+- `docs/release-process.md`
 - `docs/adr/ADR-0001-rust-and-provider-architecture.md`
 - `docs/adr/ADR-0002-macos-to-rancher-desktop-mvp.md`
 - `docs/adr/ADR-0003-safety-and-rollout-strategy.md`
