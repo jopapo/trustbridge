@@ -8,6 +8,7 @@ use std::process::{Command, Stdio};
 pub struct WorkloadPatchOptions {
     pub dry_run: bool,
     pub interactive: bool,
+    pub verbose: bool,
     pub containers: Vec<String>,
     pub include_orchestrator: bool,
     pub bundle_hash: String,
@@ -26,11 +27,13 @@ pub fn patch_workloads(
     stats: &FilterStats,
     options: &WorkloadPatchOptions,
 ) -> Result<WorkloadPatchResult> {
-    println!(
-        "workload patch filter result: kept {} / dropped {}",
-        stats.kept, stats.dropped
-    );
-    println!("workload patch certificates selected: {}", certs.len());
+    if options.verbose {
+        println!(
+            "workload patch filter result: kept {} / dropped {}",
+            stats.kept, stats.dropped
+        );
+        println!("workload patch certificates selected: {}", certs.len());
+    }
 
     let mut result = WorkloadPatchResult {
         updated_hashes: options.known_hashes.clone(),
@@ -40,7 +43,9 @@ pub fn patch_workloads(
     };
 
     if certs.is_empty() {
-        println!("workload patch: nothing to patch (filtered set is empty)");
+        if options.verbose {
+            println!("workload patch: nothing to patch (filtered set is empty)");
+        }
         return Ok(result);
     }
 
@@ -56,11 +61,15 @@ pub fn patch_workloads(
         .collect();
 
     if containers.is_empty() {
-        println!("workload patch: no running containers selected");
+        if options.verbose {
+            println!("workload patch: no running containers selected");
+        }
         return Ok(result);
     }
 
-    println!("workload patch containers selected: {}", containers.len());
+    if options.verbose {
+        println!("workload patch containers selected: {}", containers.len());
+    }
 
     for container in containers {
         if options
@@ -68,13 +77,17 @@ pub fn patch_workloads(
             .get(&container)
             .is_some_and(|hash| hash == &options.bundle_hash)
         {
-            println!("- {container}: skipped (already in sync)");
+            if options.verbose {
+                println!("- {container}: skipped (already in sync)");
+            }
             result.skipped += 1;
             continue;
         }
 
         if options.interactive && !confirm_container(&container)? {
-            println!("- {container}: skipped by user");
+            if options.verbose {
+                println!("- {container}: skipped by user");
+            }
             result.skipped += 1;
             continue;
         }
@@ -82,7 +95,9 @@ pub fn patch_workloads(
         match patch_container(&container, certs, options.dry_run) {
             Ok(_) => {
                 result.patched += 1;
-                println!("- {container}: patched");
+                if options.verbose {
+                    println!("- {container}: patched");
+                }
                 if !options.dry_run {
                     result
                         .updated_hashes
@@ -91,15 +106,19 @@ pub fn patch_workloads(
             }
             Err(error) => {
                 result.failed += 1;
-                println!("- {container}: failed ({error})");
+                if options.verbose {
+                    println!("- {container}: failed ({error})");
+                }
             }
         }
     }
 
-    println!(
-        "workload patch summary: patched={}, skipped={}, failed={}",
-        result.patched, result.skipped, result.failed
-    );
+    if options.verbose {
+        println!(
+            "workload patch summary: patched={}, skipped={}, failed={}",
+            result.patched, result.skipped, result.failed
+        );
+    }
 
     Ok(result)
 }

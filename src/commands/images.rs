@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 
 pub struct ImagePatchOptions {
     pub dry_run: bool,
+    pub verbose: bool,
     pub mode: String,
     pub include_orchestrator: bool,
     pub limit: usize,
@@ -33,12 +34,16 @@ pub fn patch_images(
     };
 
     if options.mode.eq_ignore_ascii_case("none") {
-        println!("image patch skipped (mode=none)");
+        if options.verbose {
+            println!("image patch skipped (mode=none)");
+        }
         return Ok(result);
     }
 
     if certs.is_empty() {
-        println!("image patch: nothing to patch (filtered set is empty)");
+        if options.verbose {
+            println!("image patch: nothing to patch (filtered set is empty)");
+        }
         return Ok(result);
     }
 
@@ -61,11 +66,15 @@ pub fn patch_images(
     }
 
     if images.is_empty() {
-        println!("image patch: no images selected");
+        if options.verbose {
+            println!("image patch: no images selected");
+        }
         return Ok(result);
     }
 
-    println!("image patch selected images: {}", images.len());
+    if options.verbose {
+        println!("image patch selected images: {}", images.len());
+    }
 
     let suffix = bundle_suffix(certs);
 
@@ -76,7 +85,9 @@ pub fn patch_images(
             .get(&image_key)
             .is_some_and(|hash| hash == &options.bundle_hash)
         {
-            println!("- {}: skipped (already in sync)", image.ref_name());
+            if options.verbose {
+                println!("- {}: skipped (already in sync)", image.ref_name());
+            }
             result.skipped += 1;
             continue;
         }
@@ -84,10 +95,12 @@ pub fn patch_images(
         match patch_single_image(&image, certs, options.dry_run, &suffix) {
             Ok(tag) => {
                 result.patched += 1;
-                if options.dry_run {
+                if options.dry_run && options.verbose {
                     println!("- {}: dry-run -> {}", image.ref_name(), tag);
-                } else {
+                } else if options.verbose {
                     println!("- {}: patched -> {}", image.ref_name(), tag);
+                }
+                if !options.dry_run {
                     result
                         .updated_hashes
                         .insert(image_key, options.bundle_hash.clone());
@@ -95,15 +108,19 @@ pub fn patch_images(
             }
             Err(error) => {
                 result.failed += 1;
-                println!("- {}: failed ({error})", image.ref_name());
+                if options.verbose {
+                    println!("- {}: failed ({error})", image.ref_name());
+                }
             }
         }
     }
 
-    println!(
-        "image patch summary: patched={}, skipped={}, failed={}",
-        result.patched, result.skipped, result.failed
-    );
+    if options.verbose {
+        println!(
+            "image patch summary: patched={}, skipped={}, failed={}",
+            result.patched, result.skipped, result.failed
+        );
+    }
     Ok(result)
 }
 
