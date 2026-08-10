@@ -55,3 +55,4 @@ For significant decisions, seek at least one maintainer review and explicitly co
 - `docs/adr/*.md`: detailed immutable decisions
 - `docs/roadmap.md`: prioritized execution path
 - `CHANGELOG.md`: user-visible release history
+- `docs/release-process.md`: release checklist and command flow
