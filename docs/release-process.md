@@ -45,6 +45,21 @@ In repository settings:
 
 Without this, Release Please can push branches but fails when opening the release PR.
 
+## Token Setup for Automatic Downstream Release Pipeline
+
+To ensure the binary release workflow triggers automatically after Release Please creates tags/releases,
+configure a dedicated PAT secret:
+
+1. Create a fine-grained PAT (or classic PAT) for the repository owner/bot
+2. Grant repository permissions for:
+   - `Contents: Read and write`
+   - `Pull requests: Read and write`
+   - `Workflows: Read and write` (classic PAT uses `workflow` scope)
+3. Add secret `RELEASE_PLEASE_TOKEN` in repository secrets
+4. `release-please.yml` will prefer `RELEASE_PLEASE_TOKEN` and fallback to `GITHUB_TOKEN`
+
+Why: events created by `GITHUB_TOKEN` often do not trigger other workflows; a PAT avoids that suppression.
+
 ## First Release with Release Please
 
 1. Merge this Release Please setup to `main`.
