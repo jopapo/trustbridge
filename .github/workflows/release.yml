@@ -51,16 +51,16 @@ jobs:
           if [ "${{ runner.os }}" = "macOS" ]; then
             cp scripts/macos-unblock.sh dist/macos-unblock.sh
             chmod +x dist/macos-unblock.sh
-            cat > dist/README-macos.txt <<'EOF'
-TrustBridge macOS note:
-
-- This binary is currently unsigned/not notarized.
-- If Gatekeeper blocks it, run:
-    ./macos-unblock.sh ./tbridge
-
-Then run:
-    ./tbridge --help
-EOF
+            {
+              echo 'TrustBridge macOS note:'
+              echo
+              echo '- This binary is currently unsigned/not notarized.'
+              echo '- If Gatekeeper blocks it, run:'
+              echo '    ./macos-unblock.sh ./tbridge'
+              echo
+              echo 'Then run:'
+              echo '    ./tbridge --help'
+            } > dist/README-macos.txt
             files+=(macos-unblock.sh README-macos.txt)
           fi
 
