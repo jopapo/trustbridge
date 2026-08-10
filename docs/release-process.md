@@ -33,6 +33,18 @@ git push origin vX.Y.Z
 - Existing `release.yml` still publishes binaries on pushed tags (`v*`).
 - Pre-releases can still be created manually with tags like `v0.2.0-alpha.1` when needed.
 
+## GitHub Repository Settings Required
+
+Release Please needs repository-level GitHub Actions permissions to create PRs.
+
+In repository settings:
+
+1. `Settings` → `Actions` → `General`
+2. Under `Workflow permissions`, select `Read and write permissions`
+3. Enable `Allow GitHub Actions to create and approve pull requests`
+
+Without this, Release Please can push branches but fails when opening the release PR.
+
 ## First Release with Release Please
 
 1. Merge this Release Please setup to `main`.
