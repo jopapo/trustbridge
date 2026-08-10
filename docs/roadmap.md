@@ -1,40 +1,43 @@
 # Roadmap
 
-## v0.1 - Bootstrap (current)
+## v0.1 - Foundation (reset baseline)
 
-- Rust CLI scaffold
-- macOS keychain source scan
-- sync planning engine
-- rancher-desktop target stub
-- foundational docs and ADRs
+- Rust CLI foundation
+- Source provider: `macos-keychain`
+- Runtime targets: `rancher-desktop`, `colima`, and `auto` target mode
+- Unified `apply` scopes: `runtime`, `containers`, `images`
+- Corporate-focused default certificate filtering
+- Incremental sync state (`bundle_hash` + per-target hashes)
+- Release automation (`Release Please` + multi-platform binaries)
 
-## v0.2 - Rancher Desktop Real Sync
+## v0.2 - Runtime & Workload Hardening
 
-- Implement certificate copy into Rancher Desktop VM
-- Execute truststore update inside VM
-- Add failure rollback and stronger error reporting
-- Add `doctor` command for dependency checks
+- Improve runtime detection and fallback diagnostics
+- Strengthen rollback and partial-failure handling for all scopes
+- Better support for immutable/read-only containers and images
+- Add scoped status/report command for sync visibility
 
-## v0.3 - Policy & Filtering
+## v0.3 - Policy & Configuration
 
-- Allowlist/denylist by fingerprint
-- Subject/issuer filters
-- expiration guardrails
-- config file support
+- Policy profiles (corp-focused, broad trust, strict)
+- Config-driven defaults (keywords/scopes/targets/watch interval)
+- Fingerprint allowlist/denylist and expiration guardrails
+- Dry-run output in machine-readable report format
 
-## v0.4 - Broader Targets
+## v0.4 - Kubernetes-native Integration
 
-- Docker Desktop target
-- Colima target
-- better runtime autodetection
+- Kubernetes workload patch mode (selector-based)
+- Optional manifest patch strategy (ConfigMap + volume mounts)
+- Namespace-aware reporting and controlled rollout modes
 
-## v0.5 - Cross-platform Sources
+## v0.5 - Cross-platform Source Expansion
 
-- Windows certificate store source
-- Linux host truststore source
+- Windows certificate store source provider
+- Linux trust store source provider
+- Cross-platform parity tests and docs
 
-## v1.0 - Stable OSS Foundation
+## v1.0 - Stable OSS Baseline
 
-- tested plugin contracts
-- migration/stability guarantees
-- release automation and package distribution
+- Stable provider contracts and migration guarantees
+- End-to-end test matrix and reliability SLAs
+- Production-ready release packaging and operational docs
