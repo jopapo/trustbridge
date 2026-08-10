@@ -51,7 +51,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item "${{ matrix.bin_path }}" "dist/${{ matrix.artifact_name }}"
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.artifact_name }}
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
       - name: Publish release
