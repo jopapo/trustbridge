@@ -19,14 +19,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
-      - name: Debug module layout
-        shell: pwsh
-        run: |
-          pwd
-          git rev-parse HEAD
-          Get-ChildItem -Path src/providers -Recurse -File |
-            ForEach-Object { $_.FullName.Replace($PWD.Path + [IO.Path]::DirectorySeparatorChar, '') } |
-            Sort-Object
       - name: Format check
         run: cargo fmt --all -- --check
       - name: Build
