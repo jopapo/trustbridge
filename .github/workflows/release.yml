@@ -27,7 +27,7 @@ jobs:
             artifact_name: tbridge-macos-x86_64
             bin_path: target/release/tbridge
           - os: windows-latest
-            artifact_name: tbridge-windows-x86_64.exe
+            artifact_name: tbridge-windows-x86_64
             bin_path: target/release/tbridge.exe
 
     steps:
@@ -64,26 +64,26 @@ jobs:
             files+=(macos-unblock.sh README-macos.txt)
           fi
 
-          tar -C dist -czf "dist/${{ matrix.artifact_name }}.tar.gz" "${files[@]}"
+          tar -C dist -czf "dist/${{ matrix.artifact_name }}-${{ github.ref_name }}.tar.gz" "${files[@]}"
       - name: Package artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item "${{ matrix.bin_path }}" "dist/tbridge.exe"
-          Compress-Archive -Path "dist/tbridge.exe" -DestinationPath "dist/${{ matrix.artifact_name }}.zip" -Force
+          Compress-Archive -Path "dist/tbridge.exe" -DestinationPath "dist/${{ matrix.artifact_name }}-${{ github.ref_name }}.zip" -Force
       - name: Upload artifact (Unix)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}.tar.gz
+          name: ${{ matrix.artifact_name }}-${{ github.ref_name }}
+          path: dist/${{ matrix.artifact_name }}-${{ github.ref_name }}.tar.gz
       - name: Upload artifact (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}.zip
+          name: ${{ matrix.artifact_name }}-${{ github.ref_name }}
+          path: dist/${{ matrix.artifact_name }}-${{ github.ref_name }}.zip
 
   create-release:
     name: Create GitHub Release
