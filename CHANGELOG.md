@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.2.2](https://github.com/jopapo/trustbridge/compare/v0.2.1...v0.2.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* improve error handling and output formatting in macOS unblock script ([#18](https://github.com/jopapo/trustbridge/issues/18)) ([f56863e](https://github.com/jopapo/trustbridge/commit/f56863ecd60efe82765dc9be956474d59e9b01ea))
+
 ## [0.2.1](https://github.com/jopapo/trustbridge/compare/v0.2.0...v0.2.1) (2026-08-10)
 
 
