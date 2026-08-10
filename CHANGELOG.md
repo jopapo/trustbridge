@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.2.1](https://github.com/jopapo/trustbridge/compare/v0.2.0...v0.2.1) (2026-08-10)
+
+
+### Features
+
+* add verbose option to patch functions for detailed logging ([6b8c7cb](https://github.com/jopapo/trustbridge/commit/6b8c7cbb6877479aaf6d101a3124aa44e786553f))
+
+
+### Miscellaneous Chores
+
+* add instructions for forcing version bump in PR merge commit body ([#17](https://github.com/jopapo/trustbridge/issues/17)) ([799b514](https://github.com/jopapo/trustbridge/commit/799b51406bc929641aaa8ea22f6cd072cc0388f8))
+
 ## [0.2.0](https://github.com/jopapo/trustbridge/compare/v0.1.0...v0.2.0) (2026-08-10)
 
 
