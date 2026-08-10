@@ -18,6 +18,25 @@ This document defines the release checklist and commands for TrustBridge.
 - [ ] Confirm `release.yml` ran from the tag.
 - [ ] Verify GitHub Release contains Linux/macOS/Windows artifacts.
 
+## Option B (Recommended): Squash + Semantic PR Titles
+
+Use this mode to keep release automation predictable and avoid Release Please skipping changes due to non-semantic merge commits.
+
+Repository settings:
+
+1. Enable `Allow squash merging`
+2. Disable `Allow merge commits`
+3. Optional: disable `Allow rebase merging` for stricter history
+4. Protect `main` with required checks:
+   - `CI / build-and-test`
+   - `PR Title SemVer Check / semantic-pr-title`
+
+Why this works:
+
+- Every merged PR becomes one commit.
+- The squash commit title comes from PR title.
+- With semantic PR titles (`feat:`, `fix:`), Release Please can infer version bumps reliably.
+
 ## Manual Override (Optional)
 
 ```bash
@@ -32,6 +51,7 @@ git push origin vX.Y.Z
 - `Release Please` workflow runs on pushes to `main` and creates release PRs automatically.
 - Existing `release.yml` still publishes binaries on pushed tags (`v*`).
 - Pre-releases can still be created manually with tags like `v0.2.0-alpha.1` when needed.
+- Existing release PRs should be merged with the same squash policy for consistent history.
 
 ## GitHub Repository Settings Required
 
@@ -69,3 +89,9 @@ Why: events created by `GITHUB_TOKEN` often do not trigger other workflows; a PA
 5. Confirm tag creation (`vX.Y.Z`) in repository tags.
 6. Confirm `Release` workflow ran for that tag and published artifacts.
 7. Validate GitHub Release page assets and notes.
+
+## Quick Troubleshooting
+
+- If Release Please says `No user facing commits found`, check whether merged commits were non-semantic merge commits.
+- If no release PR appears, confirm the workflow has `Read and write` permissions and PR creation permission enabled.
+- If binaries are missing in a tag release, check `Release` workflow artifacts and the `gh release upload` step logs.

@@ -173,6 +173,8 @@ If dependency fetch fails in restricted environments, run in an environment with
 - Semantic versioning is automated via Release Please from commits merged into `main`.
 - Stable tags follow `vX.Y.Z`; pre-releases can use `vX.Y.Z-alpha.N`, `-beta.N`, or `-rc.N`.
 - Tag-based binary publication remains handled by GitHub Actions release workflow.
+- Recommended governance: semantic PR titles + squash-only merges on `main`.
+- Full checklist: `docs/release-process.md`.
 
 ## macOS Security Note (Unsigned Builds)
 

@@ -24,6 +24,8 @@ Thanks for considering a contribution to TrustBridge.
 1. Open an issue with problem and proposal.
 2. Align scope with roadmap.
 3. Submit PR with tests/docs updates.
+4. Use semantic PR title (conventional commit style).
+5. Merge via squash.
 
 ## Commit Convention (recommended)
 
@@ -37,6 +39,14 @@ For automated semantic versioning with Release Please:
 - `feat:` triggers a MINOR release
 - `fix:` triggers a PATCH release
 - include `!` (for example `feat!:`) or a `BREAKING CHANGE:` footer to trigger a MAJOR release
+
+## Merge Strategy (Version Planning)
+
+To keep automatic releases stable:
+
+- prefer squash merge for every PR
+- avoid merge commits on `main`
+- keep PR titles semantic because squash title becomes the release-relevant commit
 
 ## Changelog Policy
 
