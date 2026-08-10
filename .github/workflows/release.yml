@@ -46,7 +46,25 @@ jobs:
           mkdir -p dist
           cp "${{ matrix.bin_path }}" "dist/tbridge"
           chmod +x dist/tbridge
-          tar -C dist -czf "dist/${{ matrix.artifact_name }}.tar.gz" tbridge
+          files=(tbridge)
+
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp scripts/macos-unblock.sh dist/macos-unblock.sh
+            chmod +x dist/macos-unblock.sh
+            cat > dist/README-macos.txt <<'EOF'
+TrustBridge macOS note:
+
+- This binary is currently unsigned/not notarized.
+- If Gatekeeper blocks it, run:
+    ./macos-unblock.sh ./tbridge
+
+Then run:
+    ./tbridge --help
+EOF
+            files+=(macos-unblock.sh README-macos.txt)
+          fi
+
+          tar -C dist -czf "dist/${{ matrix.artifact_name }}.tar.gz" "${files[@]}"
       - name: Package artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

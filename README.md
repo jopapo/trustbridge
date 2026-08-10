@@ -187,6 +187,9 @@ Use the helper script to remove the quarantine attribute for local usage:
 ./tbridge-macos-x86_64 --help
 ```
 
+When downloading from GitHub Releases, the macOS `.tar.gz` bundle already includes
+`macos-unblock.sh` and a short `README-macos.txt` with these same steps.
+
 If you extracted a different filename/path, pass that path to the script.
 
 ## State & Config Paths
