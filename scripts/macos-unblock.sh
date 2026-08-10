@@ -14,10 +14,15 @@ if [[ ! -f "$BINARY_PATH" ]]; then
 fi
 
 chmod +x "$BINARY_PATH"
+if [[ ! -x "$BINARY_PATH" ]]; then
+  echo "error: failed to make binary executable: $BINARY_PATH"
+  exit 1
+fi
 
 # Remove Gatekeeper quarantine attribute added to downloaded files.
 # This is needed for unsigned/notarized local development binaries.
 /usr/bin/xattr -dr com.apple.quarantine "$BINARY_PATH" || true
 
+echo "ok: executable bit ensured (+x)"
 echo "ok: quarantine attribute removed (if present)"
-echo "try now: $BINARY_PATH --help"
+echo "try now: \"$BINARY_PATH\" --help"
