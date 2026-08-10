@@ -53,6 +53,27 @@ git push origin vX.Y.Z
 - Pre-releases can still be created manually with tags like `v0.2.0-alpha.1` when needed.
 - Existing release PRs should be merged with the same squash policy for consistent history.
 
+## Force Version Bump in a Specific PR
+
+If a specific PR (including `chore:`) must force an exact release version, add this line
+to the squash commit body when merging:
+
+```text
+Release-As: X.Y.Z
+```
+
+Example:
+
+```text
+Release-As: 0.2.0
+```
+
+Tips:
+
+- Keep the PR title semantic (for example `chore: cleanup release docs`).
+- Use squash merge so the final commit body includes `Release-As`.
+- `Release-As` overrides normal `feat/fix` bump inference for that commit.
+
 ## GitHub Repository Settings Required
 
 Release Please needs repository-level GitHub Actions permissions to create PRs.
