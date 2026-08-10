@@ -174,6 +174,19 @@ If dependency fetch fails in restricted environments, run in an environment with
 - Stable tags follow `vX.Y.Z`; pre-releases can use `vX.Y.Z-alpha.N`, `-beta.N`, or `-rc.N`.
 - Tag-based binary publication remains handled by GitHub Actions release workflow.
 
+## macOS Security Note (Unsigned Builds)
+
+Current release binaries are not yet Apple code-signed/notarized. On macOS, Gatekeeper may block execution of downloaded binaries.
+
+Use the helper script to remove the quarantine attribute for local usage:
+
+```bash
+./scripts/macos-unblock.sh ./tbridge-macos-x86_64
+./tbridge-macos-x86_64 --help
+```
+
+If you extracted a different filename/path, pass that path to the script.
+
 ## State & Config Paths
 
 - Installed mode (default):
