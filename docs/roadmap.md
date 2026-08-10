@@ -16,6 +16,7 @@
 - Strengthen rollback and partial-failure handling for all scopes
 - Better support for immutable/read-only containers and images
 - Add scoped status/report command for sync visibility
+- Harden release governance (squash + semantic title policy enforcement)
 
 ## v0.3 - Policy & Configuration
 
@@ -41,3 +42,4 @@
 - Stable provider contracts and migration guarantees
 - End-to-end test matrix and reliability SLAs
 - Production-ready release packaging and operational docs
+- Signed and notarized macOS binaries (remove local unblock workaround)
