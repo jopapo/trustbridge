@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.2.3](https://github.com/jopapo/trustbridge/compare/v0.2.2...v0.2.3) (2026-08-10)
+
+
+### Bug Fixes
+
+* update artifact naming to include version in release workflow ([#20](https://github.com/jopapo/trustbridge/issues/20)) ([17fa0b4](https://github.com/jopapo/trustbridge/commit/17fa0b46886fd191917611d6bcb53c1767236433))
+
 ## [0.2.2](https://github.com/jopapo/trustbridge/compare/v0.2.1...v0.2.2) (2026-08-10)
 
 
