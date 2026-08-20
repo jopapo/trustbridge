@@ -1,14 +1,13 @@
 # TrustBridge (`tbridge`)
 
 ![CI](https://github.com/jopapo/trustbridge/actions/workflows/ci.yml/badge.svg)
-![Release](https://github.com/jopapo/trustbridge/actions/workflows/release.yml/badge.svg)
 ![Release Please](https://github.com/jopapo/trustbridge/actions/workflows/release-please.yml/badge.svg)
 ![GitHub tag](https://img.shields.io/github/v/tag/jopapo/trustbridge)
 ![License](https://img.shields.io/github/license/jopapo/trustbridge)
 
 TrustBridge is an open-source CLI to sync trusted host certificates into local container runtimes.
 
-Initial focus (MVP): **macOS Keychain -> Rancher Desktop / Colima**.
+Supported today: **macOS Keychain -> Rancher Desktop / Colima** and **Windows Certificate Store -> Rancher Desktop / Docker Desktop / WSL**.
 
 ## Why
 
@@ -19,9 +18,9 @@ TrustBridge aims to solve this once at the host/runtime boundary, instead of per
 
 ## Current Status
 
-- Project stage: `v0.1.0` scaffold
-- Source provider: `macos-keychain` (implemented)
-- Target providers: `rancher-desktop`, `colima`
+- Project stage: `v0.2.3`
+- Source providers: `macos-keychain`, `windows-certstore` (auto-selected based on host OS)
+- Target providers: `rancher-desktop`, `colima`, `docker-desktop`, `wsl`
 - Commands: `scan`, `plan`, `apply`, `verify`
 
 ## Design Principles
@@ -30,12 +29,12 @@ TrustBridge aims to solve this once at the host/runtime boundary, instead of per
 - **Idempotent**: desired-state synchronization with diff/plan
 - **Auditable**: explicit plan before apply
 - **Extensible**: provider-based architecture for sources/targets
-- **Cross-platform roadmap**: macOS first, then Windows/Linux
+- **Cross-platform**: macOS (Keychain) and Windows/WSL (Certificate Store) sources implemented; Linux source planned
 
 ## CLI
 
 ```bash
-# Scan trusted certs from macOS keychain
+# Scan trusted certs from the OS-appropriate source (macos-keychain or windows-certstore)
 cargo run -- scan
 
 # Scan self-signed certs including public/OS roots
@@ -47,6 +46,9 @@ cargo run -- scan --only-keywords netskope,inbev
 # Scan all certs (disable default self-signed filter)
 cargo run -- scan --all
 
+# Scan the Windows Certificate Store explicitly (also the default on Windows/WSL)
+cargo run -- scan --source windows-certstore
+
 # Show sync plan between source and target
 cargo run -- plan
 
@@ -56,12 +58,19 @@ cargo run -- plan --only-keywords netskope,inbev
 # Execute sync (real apply by default)
 cargo run -- apply
 
-# Auto target mode checks compatible runtimes (rancher-desktop, colima)
-# and applies to available ones
+# Auto target mode checks compatible runtimes for the current OS
+# (macOS: rancher-desktop, colima; Windows/WSL: rancher-desktop, docker-desktop, wsl)
+# and applies to available ones, tolerating unavailable targets
 cargo run -- apply --target auto
 
 # Execute sync against Colima
 cargo run -- apply --target colima
+
+# Execute sync against Docker Desktop's WSL2 backend (Windows only)
+cargo run -- apply --target docker-desktop
+
+# Execute sync against a WSL distro directly
+cargo run -- apply --target wsl
 
 # Dry-run using only specific corporate roots
 cargo run -- apply --dry-run --only-keywords netskope,inbev
@@ -85,9 +94,15 @@ cargo run -- apply --watch --interval-secs 30
 cargo run -- verify --host registry.corp.local:443
 ```
 
+Notes for Windows Certificate Store scan:
+
+- Reads `Cert:\LocalMachine\Root` and `Cert:\CurrentUser\Root` via PowerShell (`powershell.exe`/`pwsh`).
+- Works natively on Windows and from inside WSL (via Windows interop).
+- Auto-selected as the default `--source` on Windows and WSL; use `--source windows-certstore` to force it elsewhere.
+
 Notes for Rancher Desktop apply:
 
-- Uses `limactl shell` (instance `0` by default).
+- Uses `limactl shell` (instance `0` by default) on macOS, or the `rancher-desktop` WSL2 distro via `wsl.exe` on Windows/WSL.
 - Writes managed certs into `/usr/local/share/ca-certificates/tbridge/` inside the VM.
 - Runs `update-ca-certificates` (or `update-ca-trust extract` when available).
 - Override instance with `TBRIDGE_RD_INSTANCE=<name>`.
@@ -96,6 +111,19 @@ Notes for Colima apply:
 
 - Uses `limactl shell` with default instance `colima`.
 - Override instance with `TBRIDGE_COLIMA_INSTANCE=<name>`.
+- macOS only.
+
+Notes for Docker Desktop apply (Windows only):
+
+- Reaches Docker Desktop's own `docker-desktop` WSL2 distro via `wsl.exe`.
+- Writes managed certs into `/usr/local/share/ca-certificates/tbridge/` inside that distro.
+- Override the distro name with `TBRIDGE_DOCKER_DESKTOP_INSTANCE=<name>`.
+
+Notes for WSL apply:
+
+- Targets the WSL distro tbridge is running in, or another distro via `wsl.exe`.
+- Set `TBRIDGE_WSL_DISTRO=<name>` to target a specific distro (including from Windows).
+- Without the env var, requires running tbridge directly inside the target WSL distro.
 
 Notes for container/image patch (inside `apply`):
 
@@ -134,8 +162,10 @@ Main modules:
 - `src/main.rs`: CLI entrypoint
 - `src/cli.rs`: command/args definitions
 - `src/core/`: engine, plan, state, certificate model
-- `src/providers/source/macos_keychain.rs`: source provider
-- `src/providers/target/`: runtime target providers (`rancher-desktop`, `colima`)
+- `src/providers/source/macos_keychain.rs`: macOS Keychain source provider
+- `src/providers/source/windows_certstore.rs`: Windows Certificate Store source provider
+- `src/providers/target/`: runtime target providers (`rancher-desktop`, `colima`, `docker-desktop`, `wsl`)
+- `src/providers/target/vm_backend.rs`: shared shell transport (Lima, `rdctl`, `wsl.exe`, local) for VM-backed targets
 - `docs/`: architecture, roadmap, ADRs, security notes
 - `examples/`: sample configuration
 
@@ -203,4 +233,4 @@ If you extracted a different filename/path, pass that path to the script.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

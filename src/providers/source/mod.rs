@@ -2,6 +2,7 @@ use crate::core::certificate::Certificate;
 use anyhow::Result;
 
 pub mod macos_keychain;
+pub mod windows_certstore;
 
 pub trait SourceProvider {
     fn name(&self) -> &'static str;

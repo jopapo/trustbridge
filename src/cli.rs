@@ -18,23 +18,71 @@ pub enum Commands {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum SourceKind {
-    #[value(name = "macos-keychain")]
+    #[value(
+        name = "macos-keychain",
+        help = "macOS System + login Keychains (default on macOS)"
+    )]
     MacosKeychain,
+    #[value(
+        name = "windows-certstore",
+        help = "Windows Certificate Store, LocalMachine/CurrentUser Root, via PowerShell (default on Windows/WSL)"
+    )]
+    WindowsCertStore,
+}
+
+/// Picks a sensible default source for the host OS the CLI is running on.
+pub fn default_source_kind() -> SourceKind {
+    if cfg!(target_os = "windows") || is_wsl() {
+        SourceKind::WindowsCertStore
+    } else {
+        SourceKind::MacosKeychain
+    }
+}
+
+fn is_wsl() -> bool {
+    std::env::var_os("WSL_DISTRO_NAME").is_some() || std::env::var_os("WSL_INTEROP").is_some()
+}
+
+impl std::fmt::Display for SourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            SourceKind::MacosKeychain => "macos-keychain",
+            SourceKind::WindowsCertStore => "windows-certstore",
+        };
+        write!(f, "{name}")
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum TargetKind {
-    #[value(name = "auto")]
+    #[value(
+        help = "Auto-detect available runtime targets for the current OS (macOS: rancher-desktop, colima; Windows/WSL: rancher-desktop, docker-desktop, wsl)"
+    )]
     Auto,
-    #[value(name = "rancher-desktop")]
+    #[value(
+        name = "rancher-desktop",
+        help = "Rancher Desktop (Lima VM on macOS; WSL2 distro on Windows/WSL)"
+    )]
     RancherDesktop,
-    #[value(name = "colima")]
+    #[value(name = "colima", help = "Colima (Lima VM, macOS only)")]
     Colima,
+    #[value(
+        name = "docker-desktop",
+        help = "Docker Desktop's WSL2 backend (Windows/WSL only)"
+    )]
+    DockerDesktop,
+    #[value(name = "wsl", help = "A WSL2 distro reached directly or via wsl.exe")]
+    Wsl,
 }
 
 #[derive(Args, Debug)]
 pub struct ScanArgs {
-    #[arg(long, value_enum, default_value = "macos-keychain")]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = default_source_kind(),
+        help = "Certificate source (default: OS-detected)"
+    )]
     pub source: SourceKind,
     #[arg(long, default_value_t = false)]
     pub json: bool,
@@ -66,9 +114,19 @@ pub struct ScanArgs {
 
 #[derive(Args, Debug)]
 pub struct PlanArgs {
-    #[arg(long, value_enum, default_value = "macos-keychain")]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = default_source_kind(),
+        help = "Certificate source (default: OS-detected)"
+    )]
     pub source: SourceKind,
-    #[arg(long, value_enum, default_value = "rancher-desktop")]
+    #[arg(
+        long,
+        value_enum,
+        default_value = "auto",
+        help = "Runtime target (default: auto-detected)"
+    )]
     pub target: TargetKind,
     #[arg(
         long,
@@ -92,9 +150,19 @@ pub struct PlanArgs {
 
 #[derive(Args, Debug)]
 pub struct ApplyArgs {
-    #[arg(long, value_enum, default_value = "macos-keychain")]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = default_source_kind(),
+        help = "Certificate source (default: OS-detected)"
+    )]
     pub source: SourceKind,
-    #[arg(long, value_enum, default_value = "auto")]
+    #[arg(
+        long,
+        value_enum,
+        default_value = "auto",
+        help = "Runtime target (default: auto-detected; tries all compatible targets, tolerating unavailable ones)"
+    )]
     pub target: TargetKind,
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
     pub dry_run: bool,
@@ -157,7 +225,12 @@ pub struct ApplyArgs {
 
 #[derive(Args, Debug)]
 pub struct VerifyArgs {
-    #[arg(long, value_enum, default_value = "rancher-desktop")]
+    #[arg(
+        long,
+        value_enum,
+        default_value = "auto",
+        help = "Runtime target (default: auto-detected)"
+    )]
     pub target: TargetKind,
     #[arg(long)]
     pub host: Option<String>,

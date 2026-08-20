@@ -4,15 +4,16 @@ use crate::core::plan::SyncPlan;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::env;
-use std::process::Command;
 
 const MANAGED_CERT_DIR: &str = "/usr/local/share/ca-certificates/tbridge";
 
-pub struct RancherDesktopTarget;
+/// Docker Desktop's WSL2-backed Linux VM (Windows only). On macOS/Linux,
+/// Docker Desktop does not expose an equivalent shell-accessible VM.
+pub struct DockerDesktopTarget;
 
-impl TargetProvider for RancherDesktopTarget {
+impl TargetProvider for DockerDesktopTarget {
     fn name(&self) -> &'static str {
-        "rancher-desktop"
+        "docker-desktop"
     }
 
     fn current_fingerprints(&self) -> Result<Vec<String>> {
@@ -23,20 +24,18 @@ impl TargetProvider for RancherDesktopTarget {
         );
 
         let output = backend.capture(&script)?;
-        let fingerprints = output
+        Ok(output
             .lines()
             .map(str::trim)
             .filter(|line| !line.is_empty())
             .map(|line| line.to_string())
-            .collect();
-
-        Ok(fingerprints)
+            .collect())
     }
 
     fn apply_plan(&self, plan: &SyncPlan, dry_run: bool) -> Result<()> {
         if dry_run {
             println!(
-                "[dry-run] rancher-desktop: would add {} cert(s), remove {} cert(s)",
+                "[dry-run] docker-desktop: would add {} cert(s), remove {} cert(s)",
                 plan.to_add.len(),
                 plan.to_remove.len()
             );
@@ -70,11 +69,11 @@ impl TargetProvider for RancherDesktopTarget {
 
         if let Err(error) = apply_result {
             rollback(&backend, &added_paths, &removed_backups)?;
-            return Err(error).context("apply failed and rollback executed");
+            return Err(error).context("docker-desktop apply failed and rollback executed");
         }
 
         println!(
-            "rancher-desktop apply complete: add={}, remove={}",
+            "docker-desktop apply complete: add={}, remove={}",
             plan.to_add.len(),
             plan.to_remove.len()
         );
@@ -90,121 +89,43 @@ impl TargetProvider for RancherDesktopTarget {
                 "if command -v openssl >/dev/null 2>&1; then echo | openssl s_client -connect {host} -brief >/dev/null && echo 'verify: ok'; else echo 'openssl unavailable in VM'; exit 1; fi"
             );
             backend.capture(&script)?;
-            println!("verify: rancher-desktop TLS check succeeded for host: {host}");
+            println!("verify: docker-desktop TLS check succeeded for host: {host}");
         } else {
             let script = "if [ -d '/etc/ssl/certs' ]; then echo 'verify: trust store present'; else echo 'verify: trust store missing'; exit 1; fi";
             backend.capture(script)?;
-            println!("verify: rancher-desktop trust store accessible");
+            println!("verify: docker-desktop trust store accessible");
         }
 
         Ok(())
     }
 }
 
-/// Picks the transport used to reach Rancher Desktop's Linux environment:
-/// macOS uses its Lima instance (`rdctl shell` as fallback); Windows/WSL use
-/// the `rancher-desktop` WSL2 distro via `wsl.exe`.
 fn resolve_backend() -> Result<VmBackend> {
-    if cfg!(target_os = "macos") {
-        return Ok(macos_backend());
+    if !(cfg!(target_os = "windows") || is_wsl()) {
+        anyhow::bail!(
+            "docker-desktop target is only supported on Windows or WSL (Docker Desktop's WSL2 backend)"
+        );
     }
 
-    if cfg!(target_os = "windows") || is_wsl() {
-        return Ok(VmBackend::WslDistro {
-            distro: windows_instance_name(),
-        });
-    }
-
-    anyhow::bail!("rancher-desktop target is only supported on macOS, Windows, or WSL")
+    Ok(VmBackend::WslDistro {
+        distro: instance_name(),
+    })
 }
 
-fn macos_backend() -> VmBackend {
-    if should_use_rdctl_fallback() {
-        return VmBackend::Rdctl;
-    }
-    VmBackend::Lima {
-        instance: macos_instance_name(),
-    }
-}
-
-fn macos_instance_name() -> String {
-    if let Ok(instance) = env::var("TBRIDGE_RD_INSTANCE") {
-        if !instance.trim().is_empty() {
-            return instance;
-        }
-    }
-
-    if let Ok(list) = run_lima_list() {
-        if let Some(instance) = detect_rancher_desktop_instance(&list) {
-            return instance;
-        }
-    }
-
-    "0".to_string()
-}
-
-fn windows_instance_name() -> String {
-    if let Ok(distro) = env::var("TBRIDGE_RD_INSTANCE") {
+fn instance_name() -> String {
+    if let Ok(distro) = env::var("TBRIDGE_DOCKER_DESKTOP_INSTANCE") {
         if !distro.trim().is_empty() {
             return distro;
         }
     }
 
     if let Ok(distros) = list_wsl_distros() {
-        if let Some(distro) = detect_rancher_desktop_instance(&distros.join("\n")) {
-            return distro;
+        if distros.iter().any(|d| d == "docker-desktop") {
+            return "docker-desktop".to_string();
         }
     }
 
-    "rancher-desktop".to_string()
-}
-
-fn run_lima_list() -> Result<String> {
-    let output = Command::new("limactl")
-        .arg("list")
-        .output()
-        .context("failed to execute limactl list")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("limactl list failed: {stderr}");
-    }
-
-    String::from_utf8(output.stdout).context("invalid UTF-8 from limactl list output")
-}
-
-fn detect_rancher_desktop_instance(list_output: &str) -> Option<String> {
-    let mut first_candidate: Option<String> = None;
-
-    for line in list_output.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with("NAME") {
-            continue;
-        }
-
-        let name = trimmed.split_whitespace().next()?.to_string();
-        if first_candidate.is_none() {
-            first_candidate = Some(name.clone());
-        }
-
-        let lower = name.to_ascii_lowercase();
-        if lower.contains("rancher") || lower.contains("desktop") {
-            return Some(name);
-        }
-    }
-
-    first_candidate
-}
-
-fn should_use_rdctl_fallback() -> bool {
-    if matches!(
-        env::var("TBRIDGE_VM_BACKEND").ok().as_deref(),
-        Some("limactl") | Some("LIMACTL")
-    ) {
-        return false;
-    }
-
-    Command::new("rdctl").arg("--help").output().is_ok()
+    "docker-desktop".to_string()
 }
 
 fn cert_path(fingerprint: &str) -> String {

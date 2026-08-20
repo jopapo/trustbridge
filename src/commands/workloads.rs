@@ -1,3 +1,4 @@
+use crate::commands::container_runtime::ContainerRuntime;
 use crate::commands::filtering::FilterStats;
 use crate::core::certificate::Certificate;
 use anyhow::{anyhow, Context, Result};
@@ -49,8 +50,9 @@ pub fn patch_workloads(
         return Ok(result);
     }
 
+    let runtime = ContainerRuntime::detect()?;
     let containers = if options.containers.is_empty() {
-        list_running_containers()?
+        list_running_containers(&runtime)?
     } else {
         options.containers.clone()
     };
@@ -92,7 +94,7 @@ pub fn patch_workloads(
             continue;
         }
 
-        match patch_container(&container, certs, options.dry_run) {
+        match patch_container(&runtime, &container, certs, options.dry_run) {
             Ok(_) => {
                 result.patched += 1;
                 if options.verbose {
@@ -144,9 +146,14 @@ fn confirm_container(container: &str) -> Result<bool> {
     Ok(answer == "y" || answer == "yes")
 }
 
-fn patch_container(container: &str, certs: &[Certificate], dry_run: bool) -> Result<()> {
-    ensure_ca_update_tool(container, dry_run)?;
-    let (cert_dir, update_cmd) = detect_patch_strategy(container)?;
+fn patch_container(
+    runtime: &ContainerRuntime,
+    container: &str,
+    certs: &[Certificate],
+    dry_run: bool,
+) -> Result<()> {
+    ensure_ca_update_tool(runtime, container, dry_run)?;
+    let (cert_dir, update_cmd) = detect_patch_strategy(runtime, container)?;
 
     if dry_run {
         println!(
@@ -158,21 +165,26 @@ fn patch_container(container: &str, certs: &[Certificate], dry_run: bool) -> Res
         return Ok(());
     }
 
-    exec_in_container_root(container, &["sh", "-lc", &format!("mkdir -p '{cert_dir}'")])?;
+    exec_in_container_root(
+        runtime,
+        container,
+        &["sh", "-lc", &format!("mkdir -p '{cert_dir}'")],
+    )?;
 
     for certificate in certs {
         let path = format!("{cert_dir}/{}.crt", certificate.fingerprint_sha256);
-        write_file_in_container(container, &path, &certificate.pem)?;
+        write_file_in_container(runtime, container, &path, &certificate.pem)?;
     }
 
-    exec_in_container_root(container, &["sh", "-lc", &update_cmd])?;
+    exec_in_container_root(runtime, container, &["sh", "-lc", &update_cmd])?;
     Ok(())
 }
 
-fn ensure_ca_update_tool(container: &str, dry_run: bool) -> Result<()> {
+fn ensure_ca_update_tool(runtime: &ContainerRuntime, container: &str, dry_run: bool) -> Result<()> {
     if dry_run {
         let check_script = "if command -v update-ca-certificates >/dev/null 2>&1 || command -v update-ca-trust >/dev/null 2>&1; then exit 0; fi; if command -v apt-get >/dev/null 2>&1 || command -v apk >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1 || command -v yum >/dev/null 2>&1 || command -v microdnf >/dev/null 2>&1 || command -v zypper >/dev/null 2>&1 || command -v pacman >/dev/null 2>&1; then exit 0; fi; echo UNSUPPORTED";
-        let output = exec_in_container_root_capture(container, &["sh", "-lc", check_script])?;
+        let output =
+            exec_in_container_root_capture(runtime, container, &["sh", "-lc", check_script])?;
         if output.trim() == "UNSUPPORTED" {
             return Err(anyhow!(
                 "container lacks CA update tool and supported package manager"
@@ -183,13 +195,13 @@ fn ensure_ca_update_tool(container: &str, dry_run: bool) -> Result<()> {
     }
 
     let install_script = "if command -v update-ca-certificates >/dev/null 2>&1 || command -v update-ca-trust >/dev/null 2>&1; then exit 0; fi; if command -v apt-get >/dev/null 2>&1; then apt-get update && apt-get install -y ca-certificates; elif command -v apk >/dev/null 2>&1; then apk add --no-cache ca-certificates; elif command -v dnf >/dev/null 2>&1; then dnf install -y ca-certificates; elif command -v yum >/dev/null 2>&1; then yum install -y ca-certificates; elif command -v microdnf >/dev/null 2>&1; then microdnf install -y ca-certificates; elif command -v zypper >/dev/null 2>&1; then zypper --non-interactive install ca-certificates; elif command -v pacman >/dev/null 2>&1; then pacman -Sy --noconfirm ca-certificates; else echo \"unsupported package manager for ca-certificates install\"; exit 1; fi";
-    exec_in_container_root(container, &["sh", "-lc", install_script])
+    exec_in_container_root(runtime, container, &["sh", "-lc", install_script])
 }
 
-fn detect_patch_strategy(container: &str) -> Result<(String, String)> {
+fn detect_patch_strategy(runtime: &ContainerRuntime, container: &str) -> Result<(String, String)> {
     let script = "if command -v update-ca-certificates >/dev/null 2>&1; then if [ -d /usr/local/share/ca-certificates ]; then echo '/usr/local/share/ca-certificates|update-ca-certificates'; else echo '/etc/ssl/certs|update-ca-certificates'; fi; elif command -v update-ca-trust >/dev/null 2>&1; then echo '/etc/pki/ca-trust/source/anchors|update-ca-trust extract'; else echo 'UNSUPPORTED'; fi";
 
-    let output = exec_in_container_root_capture(container, &["sh", "-lc", script])?;
+    let output = exec_in_container_root_capture(runtime, container, &["sh", "-lc", script])?;
     let line = output.trim();
 
     if line == "UNSUPPORTED" || line.is_empty() {
@@ -209,18 +221,19 @@ fn detect_patch_strategy(container: &str) -> Result<(String, String)> {
     Ok((cert_dir.to_string(), update_cmd.to_string()))
 }
 
-fn list_running_containers() -> Result<Vec<String>> {
-    let output = Command::new("docker")
+fn list_running_containers(runtime: &ContainerRuntime) -> Result<Vec<String>> {
+    let output = Command::new(runtime.command())
         .args(["ps", "--format", "{{.Names}}"])
         .output()
-        .context("failed to execute docker ps")?;
+        .with_context(|| format!("failed to execute {} ps", runtime.name()))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("docker ps failed: {stderr}"));
+        return Err(anyhow!("{} ps failed: {stderr}", runtime.name()));
     }
 
-    let names = String::from_utf8(output.stdout).context("invalid UTF-8 from docker ps output")?;
+    let names = String::from_utf8(output.stdout)
+        .with_context(|| format!("invalid UTF-8 from {} ps output", runtime.name()))?;
     Ok(names
         .lines()
         .map(str::trim)
@@ -229,48 +242,74 @@ fn list_running_containers() -> Result<Vec<String>> {
         .collect())
 }
 
-fn exec_in_container_root(container: &str, args: &[&str]) -> Result<()> {
-    let status = Command::new("docker")
+fn exec_in_container_root(
+    runtime: &ContainerRuntime,
+    container: &str,
+    args: &[&str],
+) -> Result<()> {
+    let status = Command::new(runtime.command())
         .arg("exec")
         .arg("-u")
         .arg("0")
         .arg(container)
         .args(args)
         .status()
-        .with_context(|| format!("failed to execute docker exec for container `{container}`"))?;
+        .with_context(|| {
+            format!(
+                "failed to execute {} exec for container `{container}`",
+                runtime.name()
+            )
+        })?;
 
     if !status.success() {
         return Err(anyhow!(
-            "docker exec failed for container `{container}` with status {status}"
+            "{} exec failed for container `{container}` with status {status}",
+            runtime.name()
         ));
     }
 
     Ok(())
 }
 
-fn exec_in_container_root_capture(container: &str, args: &[&str]) -> Result<String> {
-    let output = Command::new("docker")
+fn exec_in_container_root_capture(
+    runtime: &ContainerRuntime,
+    container: &str,
+    args: &[&str],
+) -> Result<String> {
+    let output = Command::new(runtime.command())
         .arg("exec")
         .arg("-u")
         .arg("0")
         .arg(container)
         .args(args)
         .output()
-        .with_context(|| format!("failed to execute docker exec for container `{container}`"))?;
+        .with_context(|| {
+            format!(
+                "failed to execute {} exec for container `{container}`",
+                runtime.name()
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow!(
-            "docker exec capture failed for container `{container}`: {stderr}"
+            "{} exec capture failed for container `{container}`: {stderr}",
+            runtime.name()
         ));
     }
 
-    String::from_utf8(output.stdout).context("invalid UTF-8 from docker exec output")
+    String::from_utf8(output.stdout)
+        .with_context(|| format!("invalid UTF-8 from {} exec output", runtime.name()))
 }
 
-fn write_file_in_container(container: &str, path: &str, content: &str) -> Result<()> {
+fn write_file_in_container(
+    runtime: &ContainerRuntime,
+    container: &str,
+    path: &str,
+    content: &str,
+) -> Result<()> {
     let script = format!("cat > '{path}'");
-    let mut child = Command::new("docker")
+    let mut child = Command::new(runtime.command())
         .arg("exec")
         .arg("-i")
         .arg("-u")
@@ -281,22 +320,34 @@ fn write_file_in_container(container: &str, path: &str, content: &str) -> Result
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .with_context(|| format!("failed to execute docker exec for container `{container}`"))?;
+        .with_context(|| {
+            format!(
+                "failed to execute {} exec for container `{container}`",
+                runtime.name()
+            )
+        })?;
 
     if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(content.as_bytes())
-            .context("failed writing certificate content to docker exec stdin")?;
+        stdin.write_all(content.as_bytes()).with_context(|| {
+            format!(
+                "failed writing certificate content to {} exec stdin",
+                runtime.name()
+            )
+        })?;
     }
 
-    let output = child
-        .wait_with_output()
-        .with_context(|| format!("failed waiting docker exec for container `{container}`"))?;
+    let output = child.wait_with_output().with_context(|| {
+        format!(
+            "failed waiting {} exec for container `{container}`",
+            runtime.name()
+        )
+    })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow!(
-            "docker exec write failed for container `{container}`: {stderr}"
+            "{} exec write failed for container `{container}`: {stderr}",
+            runtime.name()
         ));
     }
 
