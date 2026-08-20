@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.3.0](https://github.com/jopapo/trustbridge/compare/v0.2.3...v0.3.0) (2026-08-20)
+
+
+### Features
+
+* add docker desktop and wsl target providers ([#22](https://github.com/jopapo/trustbridge/issues/22)) ([93537a8](https://github.com/jopapo/trustbridge/commit/93537a8e479a578976becddfca875b3d148aaf40))
+
 ## [0.2.3](https://github.com/jopapo/trustbridge/compare/v0.2.2...v0.2.3) (2026-08-10)
 
 
