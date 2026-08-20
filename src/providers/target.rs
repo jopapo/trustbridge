@@ -2,7 +2,10 @@ use crate::core::plan::SyncPlan;
 use anyhow::Result;
 
 pub mod colima;
+pub mod docker_desktop;
 pub mod rancher_desktop;
+pub mod vm_backend;
+pub mod wsl;
 
 pub trait TargetProvider {
     fn name(&self) -> &'static str;

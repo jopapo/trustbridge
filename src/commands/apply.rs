@@ -6,6 +6,7 @@ use crate::commands::{resolve_source, resolve_target};
 use crate::core::engine::SyncEngine;
 use crate::core::paths;
 use crate::core::state::StateSnapshot;
+use crate::providers::target::vm_backend::is_wsl;
 use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
 use std::io::{self, Write};
@@ -136,7 +137,15 @@ fn apply_once(
                 );
             }
 
-            target.apply_plan(&plan, args.dry_run)?;
+            if let Err(error) = target.apply_plan(&plan, args.dry_run) {
+                if !watch_mode {
+                    println!(
+                        "warning: runtime target `{}` apply failed: {error}",
+                        target.name()
+                    );
+                }
+                continue;
+            }
 
             if !args.dry_run {
                 snapshot.applied_fingerprints = desired_fingerprints.clone();
@@ -282,6 +291,11 @@ fn resolve_runtime_targets(
     target: TargetKind,
 ) -> Vec<Box<dyn crate::providers::target::TargetProvider>> {
     match target {
+        TargetKind::Auto if cfg!(target_os = "windows") || is_wsl() => vec![
+            resolve_target(TargetKind::RancherDesktop),
+            resolve_target(TargetKind::DockerDesktop),
+            resolve_target(TargetKind::Wsl),
+        ],
         TargetKind::Auto => vec![
             resolve_target(TargetKind::RancherDesktop),
             resolve_target(TargetKind::Colima),
