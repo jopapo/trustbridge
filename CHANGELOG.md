@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.4.1](https://github.com/jopapo/trustbridge/compare/v0.4.0...v0.4.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* update release workflow for binary paths and add verification steps ([#26](https://github.com/jopapo/trustbridge/issues/26)) ([daeb96d](https://github.com/jopapo/trustbridge/commit/daeb96d17c48f42bcc2fb116cee073b6ab21877c))
+
 ## [0.4.0](https://github.com/jopapo/trustbridge/compare/v0.3.0...v0.4.0) (2026-08-25)
 
 
