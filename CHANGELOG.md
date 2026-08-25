@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.4.0](https://github.com/jopapo/trustbridge/compare/v0.3.0...v0.4.0) (2026-08-25)
+
+
+### Features
+
+* enhance release process with cross-machine compatibility and TLS prerequisites documentation ([#24](https://github.com/jopapo/trustbridge/issues/24)) ([98e32b1](https://github.com/jopapo/trustbridge/commit/98e32b18a41af811ca293cffde6c5d9b947fb78d))
+
 ## [0.3.0](https://github.com/jopapo/trustbridge/compare/v0.2.3...v0.3.0) (2026-08-20)
 
 
