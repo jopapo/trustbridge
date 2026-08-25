@@ -2,24 +2,46 @@
 
 Thanks for considering a contribution to TrustBridge.
 
-## Development Setup
+## Development setup
 
 1. Install Rust stable toolchain.
-2. Clone repository.
+2. Clone the repository.
 3. Run:
    - `cargo fmt`
    - `cargo check`
    - `cargo test`
 
-## Contribution Guidelines
+If dependency fetch fails in restricted networks, run setup in an environment with crates.io access or with a trusted internal mirror.
 
-- keep changes focused and minimal
-- preserve provider contract boundaries
-- prefer explicit errors over silent behavior
-- update docs/ADRs when changing architecture or behavior
-- update `CHANGELOG.md` for user-visible changes
+## Project structure
 
-## Suggested Workflow
+- `src/main.rs`: CLI entrypoint
+- `src/cli.rs`: command and flags definitions
+- `src/core/`: sync engine, plan, state, certificate model
+- `src/providers/source/`: host trust source providers
+- `src/providers/target/`: runtime target providers
+- `src/providers/target/vm_backend.rs`: shared transport for VM-backed targets
+- `src/commands/`: command handlers
+- `docs/`: architecture, ADRs, security, release process
+
+## Architecture flow (high-level)
+
+1. Discover certificates from source provider
+2. Normalize and fingerprint certificates
+3. Diff source vs target trust state
+4. Build sync plan (`to_add`, `to_remove`)
+5. Apply changes (or dry-run)
+6. Verify trust behavior
+
+## Contribution guidelines
+
+- Keep changes focused and minimal.
+- Preserve provider contract boundaries.
+- Prefer explicit errors over silent behavior.
+- Update docs/ADRs when changing architecture or behavior.
+- Update `CHANGELOG.md` for user-visible changes.
+
+## Suggested workflow
 
 1. Open an issue with problem and proposal.
 2. Align scope with roadmap.
@@ -27,7 +49,7 @@ Thanks for considering a contribution to TrustBridge.
 4. Use semantic PR title (conventional commit style).
 5. Merge via squash.
 
-## Commit Convention (recommended)
+## Commit convention (recommended)
 
 - `feat:` new user-facing capability
 - `fix:` bug fix
@@ -47,23 +69,31 @@ Example squash commit body line:
 Release-As: 0.2.0
 ```
 
-## Merge Strategy (Version Planning)
+## Merge strategy (version planning)
 
-To keep automatic releases stable:
+- Prefer squash merge for every PR.
+- Avoid merge commits on `main`.
+- Keep PR titles semantic because squash title becomes release-relevant commit.
 
-- prefer squash merge for every PR
-- avoid merge commits on `main`
-- keep PR titles semantic because squash title becomes the release-relevant commit
-
-## Changelog Policy
+## Changelog policy
 
 TrustBridge maintains a human-curated changelog in `CHANGELOG.md`:
 
-- Release Please now manages release PRs, changelog updates, and version tagging from commit history.
+- Release Please manages release PRs, changelog updates, and version tagging from commit history.
 - Keep commit messages/PR titles consistent with conventional commits.
 - For manual changelog edits, preserve Keep a Changelog structure.
 
-## Cross-Machine Continuity
+## Useful docs
+
+- `docs/architecture.md`
+- `docs/roadmap.md`
+- `docs/decision-log.md`
+- `docs/decision-process.md`
+- `docs/release-process.md`
+- `docs/threat-model.md`
+- `docs/adr/`
+
+## Cross-machine continuity
 
 - Keep docs updated for environment-specific pitfalls (Windows native vs WSL vs Linux).
-- Prefer recording recurring install/runtime decisions in ADRs and in `docs/release-process.md`.
+- Record recurring install/runtime decisions in ADRs and `docs/release-process.md`.
