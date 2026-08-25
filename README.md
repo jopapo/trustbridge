@@ -176,6 +176,7 @@ Main modules:
 - `docs/decision-log.md`
 - `docs/decision-process.md`
 - `docs/release-process.md`
+- `docs/adr/ADR-0009-release-artifact-compatibility-and-tls-prerequisites.md`
 - `docs/adr/ADR-0001-rust-and-provider-architecture.md`
 - `docs/adr/ADR-0002-macos-to-rancher-desktop-mvp.md`
 - `docs/adr/ADR-0003-safety-and-rollout-strategy.md`
@@ -205,6 +206,20 @@ If dependency fetch fails in restricted environments, run in an environment with
 - Tag-based binary publication remains handled by GitHub Actions release workflow.
 - Recommended governance: semantic PR titles + squash-only merges on `main`.
 - Full checklist: `docs/release-process.md`.
+
+Release artifact quick guide:
+
+- Windows native (PowerShell/CMD): `tbridge-windows-x86_64-vX.Y.Z.zip`
+- WSL/Linux with modern glibc: `tbridge-linux-gnu-x86_64-vX.Y.Z.tar.gz`
+- WSL/Linux with older glibc or unknown baseline: `tbridge-linux-musl-x86_64-vX.Y.Z.tar.gz`
+
+Important (corporate SSL/TLS environments, including WSL):
+
+- If the environment cannot validate TLS certificates (for example `self-signed certificate in certificate chain`), downloading binaries alone will not fully unblock network-dependent setup/operations.
+- In these cases, first install/trust your corporate root CA (or use an internal mirror/proxy with trusted certs), then run install/update commands.
+- This is common in WSL when host/corporate trust configuration is not propagated into the distro.
+
+For cross-machine/IDE continuity, these decisions are tracked in ADRs and release process docs (see ADR-0009 and `docs/release-process.md`).
 
 ## macOS Security Note (Unsigned Builds)
 

@@ -62,3 +62,8 @@ TrustBridge maintains a human-curated changelog in `CHANGELOG.md`:
 - Release Please now manages release PRs, changelog updates, and version tagging from commit history.
 - Keep commit messages/PR titles consistent with conventional commits.
 - For manual changelog edits, preserve Keep a Changelog structure.
+
+## Cross-Machine Continuity
+
+- Keep docs updated for environment-specific pitfalls (Windows native vs WSL vs Linux).
+- Prefer recording recurring install/runtime decisions in ADRs and in `docs/release-process.md`.
