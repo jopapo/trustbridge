@@ -31,11 +31,11 @@ jobs:
           - os: macos-latest
             artifact_name: tbridge-macos-x86_64
             rust_target: x86_64-apple-darwin
-            bin_path: target/release/tbridge
+            bin_path: target/x86_64-apple-darwin/release/tbridge
           - os: windows-latest
             artifact_name: tbridge-windows-x86_64
             rust_target: x86_64-pc-windows-msvc
-            bin_path: target/release/tbridge.exe
+            bin_path: target/x86_64-pc-windows-msvc/release/tbridge.exe
 
     steps:
       - uses: actions/checkout@v5
@@ -54,6 +54,23 @@ jobs:
           sudo apt-get install -y musl-tools
       - name: Build release binary
         run: cargo build --release --locked --target ${{ matrix.rust_target }}
+      - name: Verify binary path (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          if [ ! -f "${{ matrix.bin_path }}" ]; then
+            echo "Expected binary not found: ${{ matrix.bin_path }}"
+            find target -maxdepth 5 -type f -name 'tbridge*' || true
+            exit 1
+          fi
+      - name: Verify binary path (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${{ matrix.bin_path }}")) {
+            Write-Host "Expected binary not found: ${{ matrix.bin_path }}"
+            Get-ChildItem -Path target -Recurse -Filter "tbridge*" -ErrorAction SilentlyContinue
+            exit 1
+          }
       - name: Package artifact (Unix)
         if: runner.os != 'Windows'
         run: |
