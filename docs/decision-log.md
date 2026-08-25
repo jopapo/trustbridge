@@ -55,3 +55,9 @@ This file summarizes major project decisions with context and rationale.
 - Need: handle images/targets missing CA update tooling.
 - Decision: attempt `ca-certificates` install via supported package managers.
 - Why: maximize compatibility across diverse runtimes and base images.
+
+## 2026-08-25 - ADR-0009 Release artifact compatibility + TLS prerequisites
+
+- Need: reduce repeated install failures across Windows/WSL/Linux and corporate TLS interception environments.
+- Decision: publish Linux `gnu` and `musl` artifacts, and document artifact-selection + TLS trust prerequisites in core docs/release flow.
+- Why: improve cross-machine reliability and lower support friction for non-code environment issues.

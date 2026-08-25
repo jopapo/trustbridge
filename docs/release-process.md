@@ -18,6 +18,12 @@ This document defines the release checklist and commands for TrustBridge.
 - [ ] Confirm `release.yml` ran from the tag.
 - [ ] Verify GitHub Release contains Linux/macOS/Windows artifacts.
 
+Artifact compatibility validation (required):
+
+- [ ] Confirm release includes `linux-gnu` and `linux-musl` assets.
+- [ ] Confirm release includes native `windows` and `macOS` assets.
+- [ ] Confirm release notes/README still describe which artifact to use per environment.
+
 ## Option B (Recommended): Squash + Semantic PR Titles
 
 Use this mode to keep release automation predictable and avoid Release Please skipping changes due to non-semantic merge commits.
@@ -116,3 +122,13 @@ Why: events created by `GITHUB_TOKEN` often do not trigger other workflows; a PA
 - If Release Please says `No user facing commits found`, check whether merged commits were non-semantic merge commits.
 - If no release PR appears, confirm the workflow has `Read and write` permissions and PR creation permission enabled.
 - If binaries are missing in a tag release, check `Release` workflow artifacts and the `gh release upload` step logs.
+- If Linux users report `GLIBC_x.xx not found`, direct them to `linux-musl` artifacts and verify they did not use the wrong OS artifact.
+- If install/build tooling fails with TLS errors (`self-signed certificate in certificate chain`), document CA bootstrap requirements for host/WSL/CI trust stores.
+
+## Environment Preconditions (Install/Build)
+
+Before troubleshooting product behavior, validate environment prerequisites:
+
+- artifact/runtime alignment (Windows native vs WSL vs Linux/macOS)
+- TLS trust in the active execution environment (host, WSL distro, CI runner, container)
+- corporate proxy/interception compatibility for required download endpoints

@@ -21,13 +21,20 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: tbridge-linux-x86_64
-            bin_path: target/release/tbridge
+            artifact_name: tbridge-linux-gnu-x86_64
+            rust_target: x86_64-unknown-linux-gnu
+            bin_path: target/x86_64-unknown-linux-gnu/release/tbridge
+          - os: ubuntu-latest
+            artifact_name: tbridge-linux-musl-x86_64
+            rust_target: x86_64-unknown-linux-musl
+            bin_path: target/x86_64-unknown-linux-musl/release/tbridge
           - os: macos-latest
             artifact_name: tbridge-macos-x86_64
+            rust_target: x86_64-apple-darwin
             bin_path: target/release/tbridge
           - os: windows-latest
             artifact_name: tbridge-windows-x86_64
+            rust_target: x86_64-pc-windows-msvc
             bin_path: target/release/tbridge.exe
 
     steps:
@@ -36,10 +43,17 @@ jobs:
           ref: ${{ github.ref_name }}
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
+      - name: Install musl toolchain
+        if: matrix.rust_target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo build --release --locked --target ${{ matrix.rust_target }}
       - name: Package artifact (Unix)
         if: runner.os != 'Windows'
         run: |
