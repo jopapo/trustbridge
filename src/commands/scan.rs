@@ -1,5 +1,5 @@
 use crate::cli::ScanArgs;
-use crate::commands::filtering::{apply_default_filter, FilterOptions};
+use crate::commands::filtering::{apply_default_filter, apply_profile_overrides, FilterOptions};
 use crate::commands::resolve_source;
 use anyhow::Result;
 
@@ -17,14 +17,15 @@ pub fn run(args: ScanArgs) -> Result<()> {
             },
         )
     } else {
-        apply_default_filter(
-            certs,
-            &FilterOptions {
+        let options = apply_profile_overrides(
+            FilterOptions {
                 include_public_roots: args.include_public_roots,
                 only_keywords: args.only_keywords.clone(),
                 exclude_keywords: args.exclude_keywords.clone(),
             },
-        )
+            args.profile,
+        );
+        apply_default_filter(certs, &options)
     };
 
     if args.json {
@@ -34,7 +35,10 @@ pub fn run(args: ScanArgs) -> Result<()> {
 
     println!("source: {}", source.name());
     if !args.all {
-        println!("filter: self-signed custom CAs");
+        println!(
+            "filter: self-signed custom CAs (profile: {:?})",
+            args.profile
+        );
         println!(
             "filter result: kept {} / dropped {}",
             stats.kept, stats.dropped

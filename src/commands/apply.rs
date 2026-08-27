@@ -1,5 +1,5 @@
 use crate::cli::{ApplyArgs, TargetKind};
-use crate::commands::filtering::{apply_default_filter, FilterOptions};
+use crate::commands::filtering::{apply_default_filter, apply_profile_overrides, FilterOptions};
 use crate::commands::images::{patch_images, ImagePatchOptions};
 use crate::commands::workloads::{patch_workloads, WorkloadPatchOptions};
 use crate::commands::{resolve_source, resolve_target};
@@ -61,14 +61,15 @@ fn apply_once(
     let state_path = paths::state_path();
     let mut snapshot = StateSnapshot::load(&state_path)?;
     let source_certs = source.scan()?;
-    let (source_certs, filter_stats) = apply_default_filter(
-        source_certs,
-        &FilterOptions {
+    let filter_options = apply_profile_overrides(
+        FilterOptions {
             include_public_roots: args.include_public_roots,
             only_keywords: args.only_keywords.clone(),
             exclude_keywords: args.exclude_keywords.clone(),
         },
+        args.profile,
     );
+    let (source_certs, filter_stats) = apply_default_filter(source_certs, &filter_options);
 
     let bundle_hash = bundle_hash(&source_certs);
     let check_status = if snapshot.last_bundle_hash.as_deref() == Some(&bundle_hash) {
@@ -186,8 +187,20 @@ fn apply_once(
                 bundle_hash: bundle_hash.clone(),
                 known_hashes: snapshot.container_bundle_hashes.clone(),
             },
-        )?;
-        container_result = Some(result);
+        );
+
+        match result {
+            Ok(result) => {
+                container_result = Some(result);
+            }
+            Err(error) if is_missing_container_cli(&error) => {
+                println!(
+                    "warning: containers scope skipped: {}",
+                    error.to_string().trim()
+                );
+            }
+            Err(error) => return Err(error),
+        }
 
         if !args.dry_run {
             snapshot.container_bundle_hashes = container_result
@@ -214,8 +227,20 @@ fn apply_once(
                 bundle_hash: bundle_hash.clone(),
                 known_hashes: snapshot.image_bundle_hashes.clone(),
             },
-        )?;
-        image_result = Some(result);
+        );
+
+        match result {
+            Ok(result) => {
+                image_result = Some(result);
+            }
+            Err(error) if is_missing_container_cli(&error) => {
+                println!(
+                    "warning: images scope skipped: {}",
+                    error.to_string().trim()
+                );
+            }
+            Err(error) => return Err(error),
+        }
 
         if !args.dry_run {
             snapshot.image_bundle_hashes = image_result
@@ -317,4 +342,10 @@ fn bundle_hash(certs: &[crate::core::certificate::Certificate]) -> String {
     }
 
     format!("{:x}", hasher.finalize())
+}
+
+fn is_missing_container_cli(error: &anyhow::Error) -> bool {
+    error
+        .to_string()
+        .contains("no compatible container CLI found")
 }

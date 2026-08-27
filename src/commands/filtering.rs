@@ -1,3 +1,4 @@
+use crate::cli::FilterProfile;
 use crate::core::certificate::Certificate;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -11,6 +12,20 @@ pub struct FilterOptions {
 pub struct FilterStats {
     pub kept: usize,
     pub dropped: usize,
+}
+
+const CORP_KEYWORDS: &[&str] = &["netskope", "inbev", "zscaler", "corp", "internal root"];
+
+pub fn apply_profile_overrides(mut opts: FilterOptions, profile: FilterProfile) -> FilterOptions {
+    match profile {
+        FilterProfile::Default => opts,
+        FilterProfile::Corp => {
+            if opts.only_keywords.is_empty() {
+                opts.only_keywords = CORP_KEYWORDS.iter().map(|v| v.to_string()).collect();
+            }
+            opts
+        }
+    }
 }
 
 pub fn apply_default_filter(

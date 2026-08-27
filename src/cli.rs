@@ -17,6 +17,17 @@ pub enum Commands {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum FilterProfile {
+    #[value(name = "default", help = "Default self-signed/custom CA filter")]
+    Default,
+    #[value(
+        name = "corp",
+        help = "Corporate-focused profile (auto keyword hints like netskope/inbev when no keywords are provided)"
+    )]
+    Corp,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum SourceKind {
     #[value(
         name = "macos-keychain",
@@ -88,6 +99,13 @@ pub struct ScanArgs {
     pub json: bool,
     #[arg(
         long,
+        value_enum,
+        default_value_t = FilterProfile::Default,
+        help = "Filter profile"
+    )]
+    pub profile: FilterProfile,
+    #[arg(
+        long,
         default_value_t = false,
         help = "Include non-self-signed certificates"
     )]
@@ -124,6 +142,13 @@ pub struct PlanArgs {
     #[arg(
         long,
         value_enum,
+        default_value_t = FilterProfile::Default,
+        help = "Filter profile"
+    )]
+    pub profile: FilterProfile,
+    #[arg(
+        long,
+        value_enum,
         default_value = "auto",
         help = "Runtime target (default: auto-detected)"
     )]
@@ -157,6 +182,13 @@ pub struct ApplyArgs {
         help = "Certificate source (default: OS-detected)"
     )]
     pub source: SourceKind,
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = FilterProfile::Default,
+        help = "Filter profile"
+    )]
+    pub profile: FilterProfile,
     #[arg(
         long,
         value_enum,
