@@ -39,6 +39,11 @@ pub fn run(args: ScanArgs) -> Result<()> {
             "filter result: kept {} / dropped {}",
             stats.kept, stats.dropped
         );
+        if stats.kept == 0 && stats.dropped > 0 {
+            println!(
+                "hint: no certs matched default filter; try --all or --only-keywords netskope,inbev"
+            );
+        }
     }
     println!("certificates found: {}", certs.len());
 
