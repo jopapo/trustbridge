@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.5.0](https://github.com/jopapo/trustbridge/compare/v0.4.1...v0.5.0) (2026-08-27)
+
+
+### Features
+
+* enhance CLI with quick start guide and optional command handling ([#28](https://github.com/jopapo/trustbridge/issues/28)) ([d1df195](https://github.com/jopapo/trustbridge/commit/d1df19516adf8ed2695096511011b1d52f6114c2))
+
 ## [0.4.1](https://github.com/jopapo/trustbridge/compare/v0.4.0...v0.4.1) (2026-08-25)
 
 
