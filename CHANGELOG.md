@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.6.0](https://github.com/jopapo/trustbridge/compare/v0.5.0...v0.6.0) (2026-08-27)
+
+
+### Features
+
+* enhance filtering logic to infer corporate roots and add user hints in scan output ([#30](https://github.com/jopapo/trustbridge/issues/30)) ([6298ed8](https://github.com/jopapo/trustbridge/commit/6298ed8cc2e60b3bb0be4b01eed21a15f8c30e44))
+
 ## [0.5.0](https://github.com/jopapo/trustbridge/compare/v0.4.1...v0.5.0) (2026-08-27)
 
 
