@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.6.1](https://github.com/jopapo/trustbridge/compare/v0.6.0...v0.6.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* profile corp wsl ([#32](https://github.com/jopapo/trustbridge/issues/32)) ([58039fa](https://github.com/jopapo/trustbridge/commit/58039faa0b0e989279d1203c3af7a6218f99be24))
+
 ## [0.6.0](https://github.com/jopapo/trustbridge/compare/v0.5.0...v0.6.0) (2026-08-27)
 
 
