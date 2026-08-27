@@ -34,7 +34,8 @@ pub fn apply_default_filter(
     for cert in certs {
         let subject_lower = cert.subject.to_ascii_lowercase();
 
-        let is_self_signed = is_self_signed_from_pem(&cert.pem).unwrap_or(false);
+        let is_self_signed = is_self_signed_from_pem(&cert.pem)
+            .unwrap_or_else(|| is_probably_root_or_corporate_ca(&subject_lower));
         if !is_self_signed {
             dropped += 1;
             continue;
@@ -146,9 +147,30 @@ fn parse_subject_issuer(output: &str) -> Option<(String, String)> {
     Some((subject?, issuer?))
 }
 
+fn is_probably_root_or_corporate_ca(subject_lowercase: &str) -> bool {
+    const ROOT_HINTS: &[&str] = &[
+        "root ca",
+        "internal root",
+        "certificate authority",
+        "corporate",
+        "corp",
+        "netskope",
+        "inbev",
+        "zscaler",
+        "blue coat",
+        "palo alto",
+    ];
+
+    ROOT_HINTS
+        .iter()
+        .any(|hint| subject_lowercase.contains(hint))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{is_likely_public_or_os_ca, parse_subject_issuer};
+    use super::{
+        is_likely_public_or_os_ca, is_probably_root_or_corporate_ca, parse_subject_issuer,
+    };
 
     #[test]
     fn parses_subject_and_issuer() {
@@ -181,5 +203,15 @@ mod tests {
             "cn=netskope root ca,o=netskope inc"
         ));
         assert!(!is_likely_public_or_os_ca("cn=ab inbev internal root ca"));
+    }
+
+    #[test]
+    fn infers_corporate_roots_by_subject() {
+        assert!(is_probably_root_or_corporate_ca(
+            "cn=one internal root ca, o=anheuser-busch inbev"
+        ));
+        assert!(is_probably_root_or_corporate_ca(
+            "cn=caadmin.netskope.com, ou=cert management"
+        ));
     }
 }

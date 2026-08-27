@@ -1,4 +1,4 @@
-use super::vm_backend::{current_wsl_distro, is_wsl, VmBackend};
+use super::vm_backend::{current_wsl_distro, is_wsl, list_wsl_distros, VmBackend};
 use super::TargetProvider;
 use crate::core::plan::SyncPlan;
 use anyhow::{Context, Result};
@@ -109,7 +109,30 @@ fn resolve_backend() -> Result<VmBackend> {
         return Ok(VmBackend::Local);
     }
 
-    anyhow::bail!("wsl target requires running inside WSL or setting TBRIDGE_WSL_DISTRO")
+    if let Some(distro) = infer_wsl_distro()? {
+        return Ok(VmBackend::WslDistro { distro });
+    }
+
+    anyhow::bail!(
+        "wsl target requires running inside WSL, setting TBRIDGE_WSL_DISTRO, or having an installed WSL distro"
+    )
+}
+
+fn infer_wsl_distro() -> Result<Option<String>> {
+    let distros = list_wsl_distros()?;
+    if distros.is_empty() {
+        return Ok(None);
+    }
+
+    let preferred = distros.iter().find(|name| {
+        let lower = name.to_ascii_lowercase();
+        lower != "docker-desktop"
+            && lower != "docker-desktop-data"
+            && lower != "rancher-desktop"
+            && lower != "rancher-desktop-data"
+    });
+
+    Ok(preferred.cloned().or_else(|| distros.first().cloned()))
 }
 
 fn cert_path(fingerprint: &str) -> String {
