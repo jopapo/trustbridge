@@ -60,6 +60,8 @@ struct ExportedCertificate {
 }
 
 const CERT_EXPORT_SCRIPT: &str = r#"
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $stores = @('Cert:\LocalMachine\Root', 'Cert:\CurrentUser\Root')
 $certs = foreach ($store in $stores) {
   Get-ChildItem -Path $store -ErrorAction SilentlyContinue | ForEach-Object {
@@ -112,7 +114,7 @@ fn run_powershell(script: &str) -> Result<String> {
 }
 
 fn decode_command_output(bytes: &[u8]) -> Result<String> {
-    if bytes.starts_with(&[0xFF, 0xFE]) || bytes.get(1) == Some(&0) {
+    if bytes.starts_with(&[0xFF, 0xFE]) || looks_like_utf16le(bytes) {
         let start = if bytes.starts_with(&[0xFF, 0xFE]) {
             2
         } else {
@@ -125,7 +127,30 @@ fn decode_command_output(bytes: &[u8]) -> Result<String> {
         return Ok(String::from_utf16_lossy(&utf16));
     }
 
-    String::from_utf8(bytes.to_vec()).context("invalid UTF-8 output")
+    if let Ok(text) = String::from_utf8(bytes.to_vec()) {
+        return Ok(text);
+    }
+
+    Ok(String::from_utf8_lossy(bytes).into_owned())
+}
+
+fn looks_like_utf16le(bytes: &[u8]) -> bool {
+    if bytes.len() < 4 || bytes.len() % 2 != 0 {
+        return false;
+    }
+
+    let sample_pairs = bytes.chunks_exact(2).take(64);
+    let mut total = 0usize;
+    let mut zero_high_bytes = 0usize;
+
+    for pair in sample_pairs {
+        total += 1;
+        if pair[1] == 0 {
+            zero_high_bytes += 1;
+        }
+    }
+
+    total >= 4 && zero_high_bytes * 2 >= total
 }
 
 fn parse_exported_certs(output: &str) -> Result<Vec<ExportedCertificate>> {
@@ -202,6 +227,13 @@ mod tests {
         let bytes: Vec<u8> = vec![0xFF, 0xFE, b'h', 0x00, b'i', 0x00];
         let decoded = decode_command_output(&bytes).unwrap();
         assert_eq!(decoded, "hi");
+    }
+
+    #[test]
+    fn decode_command_output_falls_back_for_non_utf8_bytes() {
+        let bytes = [b'{', b'"', b'a', b'"', b':', b'"', 0xE9, b'"', b'}'];
+        let decoded = decode_command_output(&bytes).unwrap();
+        assert!(decoded.starts_with("{\"a\":\""));
     }
 
     #[test]
