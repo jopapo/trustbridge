@@ -5,7 +5,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[command(name = "tbridge", version, about = "TrustBridge: host truststore sync")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]

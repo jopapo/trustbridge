@@ -28,35 +28,49 @@ If your company uses TLS inspection/proxy (self-signed or corporate CAs), your h
 
 ```bash
 # 1) Discover trusted certs from host
-cargo run -- scan
+tbridge scan
 
 # 2) Preview what would change
-cargo run -- plan
+tbridge plan
 
 # 3) Apply sync
-cargo run -- apply
+tbridge apply
 
 # 4) Verify trust against a host
-cargo run -- verify --host registry.corp.local:443
+tbridge verify --host registry.corp.local:443
 ```
 
 ## Common usage
 
 ```bash
 # Select only specific roots by keyword
-cargo run -- plan --only-keywords netskope,inbev
+tbridge plan --only-keywords netskope,inbev
 
 # Dry-run apply
-cargo run -- apply --dry-run
+tbridge apply --dry-run
 
 # Force a target
-cargo run -- apply --target colima
-cargo run -- apply --target rancher-desktop
-cargo run -- apply --target docker-desktop
-cargo run -- apply --target wsl
+tbridge apply --target colima
+tbridge apply --target rancher-desktop
+tbridge apply --target docker-desktop
+tbridge apply --target wsl
 
 # Continuous sync
-cargo run -- apply --watch --interval-secs 30
+tbridge apply --watch --interval-secs 30
+```
+
+## Opening by double-click
+
+If you open `tbridge`/`tbridge.exe` by double-click, TrustBridge shows a quick usage guide
+with command examples.
+
+Recommended usage is from terminal/PowerShell:
+
+```bash
+tbridge scan
+tbridge plan
+tbridge apply --dry-run
+tbridge apply
 ```
 
 ## Runtime notes

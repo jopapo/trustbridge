@@ -13,6 +13,17 @@ Thanks for considering a contribution to TrustBridge.
 
 If dependency fetch fails in restricted networks, run setup in an environment with crates.io access or with a trusted internal mirror.
 
+## Local developer run examples
+
+When running from source during development, use:
+
+```bash
+cargo run -- scan
+cargo run -- plan
+cargo run -- apply --dry-run
+cargo run -- apply
+```
+
 ## Project structure
 
 - `src/main.rs`: CLI entrypoint
