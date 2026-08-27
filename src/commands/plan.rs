@@ -1,5 +1,5 @@
 use crate::cli::PlanArgs;
-use crate::commands::filtering::{apply_default_filter, FilterOptions};
+use crate::commands::filtering::{apply_default_filter, apply_profile_overrides, FilterOptions};
 use crate::commands::{resolve_source, resolve_target};
 use crate::core::engine::SyncEngine;
 use crate::core::paths;
@@ -12,15 +12,15 @@ pub fn run(args: PlanArgs) -> Result<()> {
     let state_path = paths::state_path();
     let snapshot = StateSnapshot::load(&state_path)?;
     let source_certs = source.scan()?;
-    let source_certs = apply_default_filter(
-        source_certs,
-        &FilterOptions {
+    let filter_options = apply_profile_overrides(
+        FilterOptions {
             include_public_roots: args.include_public_roots,
             only_keywords: args.only_keywords,
             exclude_keywords: args.exclude_keywords,
         },
-    )
-    .0;
+        args.profile,
+    );
+    let source_certs = apply_default_filter(source_certs, &filter_options).0;
     let target_fingerprints = target.current_fingerprints()?;
 
     let plan = SyncEngine::build_plan_from_data(

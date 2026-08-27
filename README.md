@@ -46,6 +46,10 @@ tbridge verify --host registry.corp.local:443
 # Select only specific roots by keyword
 tbridge plan --only-keywords netskope,inbev
 
+# Use the corporate profile preset
+tbridge scan --profile corp
+tbridge apply --dry-run --profile corp --target wsl --scope runtime
+
 # Dry-run apply
 tbridge apply --dry-run
 

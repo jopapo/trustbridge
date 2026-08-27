@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use std::env;
 use std::io::Write;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 /// Transport used to run privileged shell commands inside the target
@@ -38,7 +39,7 @@ pub fn current_wsl_distro() -> Option<String> {
 /// Lists installed WSL distro names by shelling out to `wsl.exe -l -q`.
 /// Works from a native Windows host and, via interop, from inside WSL.
 pub fn list_wsl_distros() -> Result<Vec<String>> {
-    let output = Command::new("wsl.exe")
+    let output = wsl_command()
         .args(["-l", "-q"])
         .output()
         .context("failed to execute wsl.exe -l -q")?;
@@ -107,7 +108,7 @@ impl VmBackend {
                 cmd
             }
             VmBackend::WslDistro { distro } => {
-                let mut cmd = Command::new("wsl.exe");
+                let mut cmd = wsl_command();
                 cmd.args(["-d", distro, "-u", "root", "--", "sh", "-lc", &rooted]);
                 cmd
             }
@@ -174,6 +175,26 @@ impl VmBackend {
     }
 }
 
+fn wsl_command() -> Command {
+    if let Some(path) = wsl_executable_path() {
+        return Command::new(path);
+    }
+
+    Command::new("wsl.exe")
+}
+
+fn wsl_executable_path() -> Option<String> {
+    let windir = env::var("WINDIR").ok()?;
+    let candidates = [
+        format!(r"{windir}\System32\wsl.exe"),
+        format!(r"{windir}\Sysnative\wsl.exe"),
+    ];
+
+    candidates
+        .into_iter()
+        .find(|candidate| Path::new(candidate).exists())
+}
+
 fn shell_quote(input: &str) -> String {
     format!("'{}'", input.replace('\'', "'\\''"))
 }
@@ -185,5 +206,17 @@ mod tests {
     #[test]
     fn shell_quote_escapes_single_quotes() {
         assert_eq!(shell_quote("it's"), "'it'\\''s'");
+    }
+
+    #[test]
+    fn finds_wsl_path_when_windir_is_present() {
+        if let Ok(windir) = env::var("WINDIR") {
+            let maybe = wsl_executable_path();
+            if Path::new(&format!(r"{windir}\System32\wsl.exe")).exists()
+                || Path::new(&format!(r"{windir}\Sysnative\wsl.exe")).exists()
+            {
+                assert!(maybe.is_some());
+            }
+        }
     }
 }
