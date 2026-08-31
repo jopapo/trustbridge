@@ -39,7 +39,7 @@ pub fn current_wsl_distro() -> Option<String> {
 /// Lists installed WSL distro names by shelling out to `wsl.exe -l -q`.
 /// Works from a native Windows host and, via interop, from inside WSL.
 pub fn list_wsl_distros() -> Result<Vec<String>> {
-    let output = wsl_command()
+    let output = direct_wsl_command()
         .args(["-l", "-q"])
         .output()
         .context("failed to execute wsl.exe -l -q")?;
@@ -49,16 +49,7 @@ pub fn list_wsl_distros() -> Result<Vec<String>> {
         return Err(anyhow!("wsl.exe -l -q failed: {stderr}"));
     }
 
-    // wsl.exe emits UTF-16LE with a BOM on some Windows builds.
-    let text = if output.stdout.starts_with(&[0xFF, 0xFE]) {
-        let utf16: Vec<u16> = output.stdout[2..]
-            .chunks_exact(2)
-            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-            .collect();
-        String::from_utf16_lossy(&utf16)
-    } else {
-        String::from_utf8_lossy(&output.stdout).into_owned()
-    };
+    let text = decode_windows_cli_output(&output.stdout);
 
     Ok(text
         .lines()
@@ -66,6 +57,43 @@ pub fn list_wsl_distros() -> Result<Vec<String>> {
         .filter(|line| !line.is_empty())
         .map(str::to_string)
         .collect())
+}
+
+fn decode_windows_cli_output(bytes: &[u8]) -> String {
+    if bytes.starts_with(&[0xFF, 0xFE]) || looks_like_utf16le(bytes) {
+        let start = if bytes.starts_with(&[0xFF, 0xFE]) {
+            2
+        } else {
+            0
+        };
+
+        let utf16: Vec<u16> = bytes[start..]
+            .chunks_exact(2)
+            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect();
+        return String::from_utf16_lossy(&utf16);
+    }
+
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+fn looks_like_utf16le(bytes: &[u8]) -> bool {
+    if bytes.len() < 4 || bytes.len() % 2 != 0 {
+        return false;
+    }
+
+    let sample_pairs = bytes.chunks_exact(2).take(64);
+    let mut total = 0usize;
+    let mut zero_high_bytes = 0usize;
+
+    for pair in sample_pairs {
+        total += 1;
+        if pair[1] == 0 {
+            zero_high_bytes += 1;
+        }
+    }
+
+    total >= 4 && zero_high_bytes * 2 >= total
 }
 
 impl VmBackend {
@@ -108,7 +136,7 @@ impl VmBackend {
                 cmd
             }
             VmBackend::WslDistro { distro } => {
-                let mut cmd = wsl_command();
+                let mut cmd = direct_wsl_command();
                 cmd.args(["-d", distro, "-u", "root", "--", "sh", "-lc", &rooted]);
                 cmd
             }
@@ -122,8 +150,7 @@ impl VmBackend {
 
     pub fn run(&self, script: &str) -> Result<()> {
         let output = self
-            .build(script)
-            .output()
+            .execute(script)
             .with_context(|| format!("failed to execute {}", self.label()))?;
 
         if !output.status.success() {
@@ -135,8 +162,7 @@ impl VmBackend {
 
     pub fn capture(&self, script: &str) -> Result<String> {
         let output = self
-            .build(script)
-            .output()
+            .execute(script)
             .with_context(|| format!("failed to execute {}", self.label()))?;
 
         if !output.status.success() {
@@ -150,7 +176,7 @@ impl VmBackend {
 
     pub fn run_with_stdin(&self, script: &str, stdin_content: &str) -> Result<()> {
         let mut child = self
-            .build(script)
+            .spawn(script)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -175,12 +201,55 @@ impl VmBackend {
     }
 }
 
-fn wsl_command() -> Command {
+impl VmBackend {
+    fn execute(&self, script: &str) -> Result<std::process::Output> {
+        match self {
+            VmBackend::WslDistro { .. } => {
+                let primary = self.build(script).output();
+                if primary.is_ok() {
+                    return primary.map_err(Into::into);
+                }
+
+                self.fallback_wsl_via_cmd(script)
+            }
+            _ => self.build(script).output().map_err(Into::into),
+        }
+    }
+
+    fn spawn(&self, script: &str) -> Command {
+        match self {
+            VmBackend::WslDistro { distro } => build_wsl_command(distro, &self.root_script(script)),
+            _ => self.build(script),
+        }
+    }
+
+    fn fallback_wsl_via_cmd(&self, script: &str) -> Result<std::process::Output> {
+        let VmBackend::WslDistro { distro } = self else {
+            return Err(anyhow!("invalid fallback invocation"));
+        };
+
+        let rooted = self.root_script(script);
+        let mut cmd = Command::new("cmd.exe");
+        cmd.args([
+            "/C", "wsl.exe", "-d", distro, "-u", "root", "--", "sh", "-lc", &rooted,
+        ]);
+        cmd.output()
+            .map_err(|error| anyhow!("wsl.exe primary+cmd fallback failed: {error}"))
+    }
+}
+
+fn direct_wsl_command() -> Command {
     if let Some(path) = wsl_executable_path() {
         return Command::new(path);
     }
 
     Command::new("wsl.exe")
+}
+
+fn build_wsl_command(distro: &str, rooted: &str) -> Command {
+    let mut cmd = direct_wsl_command();
+    cmd.args(["-d", distro, "-u", "root", "--", "sh", "-lc", rooted]);
+    cmd
 }
 
 fn wsl_executable_path() -> Option<String> {
@@ -218,5 +287,12 @@ mod tests {
                 assert!(maybe.is_some());
             }
         }
+    }
+
+    #[test]
+    fn decodes_utf16le_without_bom_for_wsl_list() {
+        let bytes = [b'U', 0, b'b', 0, b'u', 0, b'n', 0, b't', 0, b'u', 0];
+        let decoded = decode_windows_cli_output(&bytes);
+        assert_eq!(decoded, "Ubuntu");
     }
 }
