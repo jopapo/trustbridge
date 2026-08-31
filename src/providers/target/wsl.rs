@@ -109,19 +109,18 @@ fn resolve_backend() -> Result<VmBackend> {
         return Ok(VmBackend::Local);
     }
 
-    if let Some(distro) = infer_wsl_distro()? {
+    let detected_distros = list_wsl_distros().unwrap_or_default();
+
+    if let Some(distro) = infer_wsl_distro_from(&detected_distros) {
         return Ok(VmBackend::WslDistro { distro });
     }
 
-    anyhow::bail!(
-        "wsl target requires running inside WSL, setting TBRIDGE_WSL_DISTRO, or having an installed WSL distro"
-    )
+    anyhow::bail!(build_wsl_unavailable_message(&detected_distros))
 }
 
-fn infer_wsl_distro() -> Result<Option<String>> {
-    let distros = list_wsl_distros()?;
+fn infer_wsl_distro_from(distros: &[String]) -> Option<String> {
     if distros.is_empty() {
-        return Ok(None);
+        return None;
     }
 
     let preferred = distros.iter().find(|name| {
@@ -132,7 +131,19 @@ fn infer_wsl_distro() -> Result<Option<String>> {
             && lower != "rancher-desktop-data"
     });
 
-    Ok(preferred.cloned().or_else(|| distros.first().cloned()))
+    preferred.cloned().or_else(|| distros.first().cloned())
+}
+
+fn build_wsl_unavailable_message(distros: &[String]) -> String {
+    if distros.is_empty() {
+        return "wsl target unavailable: no WSL distros detected. Run `wsl -l -q` and install a distro, or run inside WSL.".to_string();
+    }
+
+    format!(
+        "wsl target unavailable: could not auto-select a distro. Set TBRIDGE_WSL_DISTRO (for example `setx TBRIDGE_WSL_DISTRO {example}` / `$env:TBRIDGE_WSL_DISTRO=\"{example}\"`) and retry. Detected distros: {detected}",
+        example = distros.first().cloned().unwrap_or_else(|| "Ubuntu".to_string()),
+        detected = distros.join(", ")
+    )
 }
 
 fn cert_path(fingerprint: &str) -> String {
