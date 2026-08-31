@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.6.2](https://github.com/jopapo/trustbridge/compare/v0.6.1...v0.6.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* improve WSL distro detection and error messaging ([#34](https://github.com/jopapo/trustbridge/issues/34)) ([732bee9](https://github.com/jopapo/trustbridge/commit/732bee9a84ea80583df33a2b128f6536eb610fbc))
+
 ## [0.6.1](https://github.com/jopapo/trustbridge/compare/v0.6.0...v0.6.1) (2026-08-27)
 
 
