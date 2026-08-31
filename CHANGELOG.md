@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.7.0](https://github.com/jopapo/trustbridge/compare/v0.6.2...v0.7.0) (2026-08-31)
+
+
+### Features
+
+* add exclude_leaf_certs option to filtering and apply commands ([#36](https://github.com/jopapo/trustbridge/issues/36)) ([9983caa](https://github.com/jopapo/trustbridge/commit/9983caa98792799f4fa07c9fdee5e3273ec80223))
+
 ## [0.6.2](https://github.com/jopapo/trustbridge/compare/v0.6.1...v0.6.2) (2026-08-31)
 
 
