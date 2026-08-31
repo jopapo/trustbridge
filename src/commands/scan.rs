@@ -22,6 +22,7 @@ pub fn run(args: ScanArgs) -> Result<()> {
                 include_public_roots: args.include_public_roots,
                 only_keywords: args.only_keywords.clone(),
                 exclude_keywords: args.exclude_keywords.clone(),
+                exclude_leaf_certs: false,
             },
             args.profile,
         );

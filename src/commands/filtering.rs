@@ -1,5 +1,6 @@
 use crate::cli::FilterProfile;
 use crate::core::certificate::Certificate;
+use std::collections::HashSet;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -7,6 +8,7 @@ pub struct FilterOptions {
     pub include_public_roots: bool,
     pub only_keywords: Vec<String>,
     pub exclude_keywords: Vec<String>,
+    pub exclude_leaf_certs: bool,
 }
 
 pub struct FilterStats {
@@ -20,6 +22,7 @@ pub fn apply_profile_overrides(mut opts: FilterOptions, profile: FilterProfile) 
     match profile {
         FilterProfile::Default => opts,
         FilterProfile::Corp => {
+            opts.exclude_leaf_certs = true;
             if opts.only_keywords.is_empty() {
                 opts.only_keywords = CORP_KEYWORDS.iter().map(|v| v.to_string()).collect();
             }
@@ -34,6 +37,7 @@ pub fn apply_default_filter(
 ) -> (Vec<Certificate>, FilterStats) {
     let mut kept = Vec::new();
     let mut dropped = 0usize;
+    let mut seen_fingerprints = HashSet::new();
 
     let include_keywords: Vec<String> = opts
         .only_keywords
@@ -47,6 +51,11 @@ pub fn apply_default_filter(
         .collect();
 
     for cert in certs {
+        if !seen_fingerprints.insert(cert.fingerprint_sha256.clone()) {
+            dropped += 1;
+            continue;
+        }
+
         let subject_lower = cert.subject.to_ascii_lowercase();
 
         let is_self_signed = is_self_signed_from_pem(&cert.pem)
@@ -57,6 +66,11 @@ pub fn apply_default_filter(
         }
 
         if !opts.include_public_roots && is_likely_public_or_os_ca(&subject_lower) {
+            dropped += 1;
+            continue;
+        }
+
+        if opts.exclude_leaf_certs && is_likely_leaf_server_cert(&subject_lower) {
             dropped += 1;
             continue;
         }
@@ -181,10 +195,20 @@ fn is_probably_root_or_corporate_ca(subject_lowercase: &str) -> bool {
         .any(|hint| subject_lowercase.contains(hint))
 }
 
+fn is_likely_leaf_server_cert(subject_lowercase: &str) -> bool {
+    subject_lowercase.contains("cn=")
+        && subject_lowercase.contains('.')
+        && !subject_lowercase.contains("root")
+        && !subject_lowercase.contains(" ca")
+        && !subject_lowercase.contains("certificate authority")
+        && !subject_lowercase.contains("cert management")
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        is_likely_public_or_os_ca, is_probably_root_or_corporate_ca, parse_subject_issuer,
+        is_likely_leaf_server_cert, is_likely_public_or_os_ca, is_probably_root_or_corporate_ca,
+        parse_subject_issuer,
     };
 
     #[test]
@@ -227,6 +251,16 @@ mod tests {
         ));
         assert!(is_probably_root_or_corporate_ca(
             "cn=caadmin.netskope.com, ou=cert management"
+        ));
+    }
+
+    #[test]
+    fn identifies_leaf_hostname_subjects() {
+        assert!(is_likely_leaf_server_cert(
+            "cn=psn.ab-inbev.com, o=anheuser-busch inbev"
+        ));
+        assert!(!is_likely_leaf_server_cert(
+            "cn=one internal root ca, ou=pki, o=anheuser-busch inbev"
         ));
     }
 }
