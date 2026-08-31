@@ -17,6 +17,7 @@ pub fn run(args: PlanArgs) -> Result<()> {
             include_public_roots: args.include_public_roots,
             only_keywords: args.only_keywords,
             exclude_keywords: args.exclude_keywords,
+            exclude_leaf_certs: false,
         },
         args.profile,
     );
