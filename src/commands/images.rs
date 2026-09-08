@@ -14,6 +14,7 @@ pub struct ImagePatchOptions {
     pub limit: usize,
     pub bundle_hash: String,
     pub known_hashes: HashMap<String, String>,
+    pub retag_original: bool,
 }
 
 pub struct ImagePatchResult {
@@ -50,6 +51,9 @@ pub fn patch_images(
 
     let runtime = ContainerRuntime::detect()?;
     let mut images = list_images(&runtime)?;
+    // don't re-patch our own derived images, or the suffix compounds and eventually
+    // produces an invalid (too long) tag
+    images.retain(|image| !is_trustbridge_derived_tag(&image.tag));
     if options.mode.eq_ignore_ascii_case("user") {
         images.retain(|image| is_user_image(&image.repository));
     } else if !options.mode.eq_ignore_ascii_case("all") {
@@ -68,14 +72,7 @@ pub fn patch_images(
     }
 
     if images.is_empty() {
-        if options.verbose {
-            println!("image patch: no images selected");
-        }
         return Ok(result);
-    }
-
-    if options.verbose {
-        println!("image patch selected images: {}", images.len());
     }
 
     let suffix = bundle_suffix(certs);
@@ -87,10 +84,15 @@ pub fn patch_images(
             .get(&image_key)
             .is_some_and(|hash| hash == &options.bundle_hash)
         {
-            if options.verbose {
-                println!("- {}: skipped (already in sync)", image.ref_name());
-            }
             result.skipped += 1;
+            if options.retag_original && !options.dry_run {
+                let patched_tag = image.patched_tag(&suffix);
+                if let Err(error) = retag_image(&runtime, &patched_tag, &image_key) {
+                    if options.verbose {
+                        println!("- {}: retag failed ({error})", image.ref_name());
+                    }
+                }
+            }
             continue;
         }
 
@@ -103,6 +105,14 @@ pub fn patch_images(
                     println!("- {}: patched -> {}", image.ref_name(), tag);
                 }
                 if !options.dry_run {
+                    if options.retag_original {
+                        if let Err(error) = retag_image(&runtime, &tag, &image_key) {
+                            if options.verbose {
+                                println!("- {}: retag failed ({error})", image.ref_name());
+                            }
+                        }
+                    }
+
                     result
                         .updated_hashes
                         .insert(image_key, options.bundle_hash.clone());
@@ -211,6 +221,13 @@ fn is_orchestrator_image(repository: &str) -> bool {
         || lower.starts_with("k8s.gcr.io/")
 }
 
+fn is_trustbridge_derived_tag(tag: &str) -> bool {
+    match tag.rsplit_once("-tb-") {
+        Some((_, suffix)) => suffix.len() == 8 && suffix.chars().all(|c| c.is_ascii_hexdigit()),
+        None => false,
+    }
+}
+
 fn bundle_suffix(certs: &[Certificate]) -> String {
     let mut fingerprints: Vec<String> = certs
         .iter()
@@ -283,6 +300,7 @@ fn create_patch_container(runtime: &ContainerRuntime, image_ref: &str) -> Result
 
     let status = Command::new(runtime.command())
         .args(["start", &container_id])
+        .stdout(Stdio::null())
         .status()
         .with_context(|| format!("failed to start temp container `{container_id}`"))?;
 
@@ -294,6 +312,23 @@ fn create_patch_container(runtime: &ContainerRuntime, image_ref: &str) -> Result
     }
 
     Ok(container_id)
+}
+
+fn retag_image(runtime: &ContainerRuntime, patched_ref: &str, original_ref: &str) -> Result<()> {
+    let status = Command::new(runtime.command())
+        .args(["tag", patched_ref, original_ref])
+        .stdout(Stdio::null())
+        .status()
+        .with_context(|| format!("failed to tag `{patched_ref}` as `{original_ref}`"))?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "{} tag failed for `{patched_ref}` -> `{original_ref}`",
+            runtime.name()
+        ));
+    }
+
+    Ok(())
 }
 
 fn patch_image_container(
@@ -314,7 +349,34 @@ fn patch_image_container(
         write_file_in_container(runtime, container_id, &path, &certificate.pem)?;
     }
 
-    exec_in_container(runtime, container_id, &["sh", "-lc", &update_cmd])
+    exec_in_container(runtime, container_id, &["sh", "-lc", &update_cmd])?;
+
+    // JVM ships its own cacerts store; update-ca-certificates never touches it.
+    import_into_java_truststore(runtime, container_id, &cert_dir)
+}
+
+fn import_into_java_truststore(
+    runtime: &ContainerRuntime,
+    container_id: &str,
+    cert_dir: &str,
+) -> Result<()> {
+    let script = format!(
+        "if command -v keytool >/dev/null 2>&1; then \
+         CACERTS=''; \
+         for candidate in \"$JAVA_HOME/lib/security/cacerts\" /opt/java/openjdk/lib/security/cacerts /usr/lib/jvm/*/lib/security/cacerts /opt/openjdk*/lib/security/cacerts; do \
+           if [ -f \"$candidate\" ]; then CACERTS=\"$candidate\"; break; fi; \
+         done; \
+         if [ -z \"$CACERTS\" ]; then CACERTS=$(find /usr/lib/jvm /opt -maxdepth 4 -name cacerts 2>/dev/null | head -n1); fi; \
+         if [ -n \"$CACERTS\" ]; then \
+           for f in {cert_dir}/*.crt; do \
+             [ -f \"$f\" ] || continue; \
+             alias=$(basename \"$f\" .crt); \
+             keytool -importcert -noprompt -trustcacerts -alias \"tbridge-$alias\" -file \"$f\" -keystore \"$CACERTS\" -storepass changeit >/dev/null 2>&1 || true; \
+           done; \
+         fi; \
+       fi"
+    );
+    exec_in_container(runtime, container_id, &["sh", "-lc", &script])
 }
 
 fn ensure_ca_update_tool(runtime: &ContainerRuntime, container_id: &str) -> Result<()> {
@@ -349,6 +411,7 @@ fn detect_patch_strategy(
 fn commit_image(runtime: &ContainerRuntime, container_id: &str, target_ref: &str) -> Result<()> {
     let status = Command::new(runtime.command())
         .args(["commit", container_id, target_ref])
+        .stdout(Stdio::null())
         .status()
         .with_context(|| format!("failed to commit temp container `{container_id}`"))?;
 
@@ -365,6 +428,7 @@ fn commit_image(runtime: &ContainerRuntime, container_id: &str, target_ref: &str
 fn remove_container(runtime: &ContainerRuntime, container_id: &str) -> Result<()> {
     let status = Command::new(runtime.command())
         .args(["rm", "-f", container_id])
+        .stdout(Stdio::null())
         .status()
         .with_context(|| format!("failed to remove temp container `{container_id}`"))?;
 
@@ -385,6 +449,7 @@ fn exec_in_container(runtime: &ContainerRuntime, container_id: &str, args: &[&st
         .arg("0")
         .arg(container_id)
         .args(args)
+        .stdout(Stdio::null())
         .status()
         .with_context(|| {
             format!(

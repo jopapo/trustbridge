@@ -249,6 +249,13 @@ pub struct ApplyArgs {
     pub images_mode: String,
     #[arg(long, default_value_t = 30, help = "Max number of images to patch")]
     pub images_limit: usize,
+    #[arg(
+        long,
+        default_value_t = false,
+        action = ArgAction::SetTrue,
+        help = "Also re-tag the patched image over its original tag (e.g. `:latest`), so `docker run` without an explicit trustbridge tag picks up the patched image"
+    )]
+    pub images_retag: bool,
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue, help = "Continuously keep targets in sync")]
     pub watch: bool,
     #[arg(long, default_value_t = 30, help = "Watch loop interval in seconds")]
