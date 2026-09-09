@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
+## [0.8.0](https://github.com/jopapo/trustbridge/compare/v0.7.0...v0.8.0) (2026-09-09)
+
+
+### Features
+
+* add images_retag option to ApplyArgs for re-tagging patched images ([#38](https://github.com/jopapo/trustbridge/issues/38)) ([e6fa429](https://github.com/jopapo/trustbridge/commit/e6fa429a5cb95681255f13a86bb414445e1e234f))
+
 ## [0.7.0](https://github.com/jopapo/trustbridge/compare/v0.6.2...v0.7.0) (2026-08-31)
 
 
