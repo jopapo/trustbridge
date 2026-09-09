@@ -1,7 +1,6 @@
 use crate::commands::container_runtime::ContainerRuntime;
 use crate::core::certificate::Certificate;
 use anyhow::{anyhow, Context, Result};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -75,29 +74,35 @@ pub fn patch_images(
         return Ok(result);
     }
 
-    let suffix = bundle_suffix(certs);
-
     for image in images {
         let image_key = image.ref_name();
+        // keyed by image ID, not repo:tag: a tag can be silently repointed to a fresh
+        // (unpatched) pull without us ever seeing that as a change otherwise
         if options
             .known_hashes
-            .get(&image_key)
+            .get(&image.id)
             .is_some_and(|hash| hash == &options.bundle_hash)
         {
             result.skipped += 1;
-            if options.retag_original && !options.dry_run {
-                let patched_tag = image.patched_tag(&suffix);
-                if let Err(error) = retag_image(&runtime, &patched_tag, &image_key) {
+            if !options.dry_run {
+                if options.retag_original {
+                    if let Err(error) = retag_image(&runtime, &image.id, &image_key) {
+                        if options.verbose {
+                            println!("- {}: retag failed ({error})", image.ref_name());
+                        }
+                    }
+                } else if let Err(error) = retag_image(&runtime, &image.id, &image.stable_alias_tag())
+                {
                     if options.verbose {
-                        println!("- {}: retag failed ({error})", image.ref_name());
+                        println!("- {}: alias retag failed ({error})", image.ref_name());
                     }
                 }
             }
             continue;
         }
 
-        match patch_single_image(&runtime, &image, certs, options.dry_run, &suffix) {
-            Ok(tag) => {
+        match patch_single_image(&runtime, &image, certs, options.dry_run, options.retag_original) {
+            Ok((tag, new_id)) => {
                 result.patched += 1;
                 if options.dry_run && options.verbose {
                     println!("- {}: dry-run -> {}", image.ref_name(), tag);
@@ -105,17 +110,9 @@ pub fn patch_images(
                     println!("- {}: patched -> {}", image.ref_name(), tag);
                 }
                 if !options.dry_run {
-                    if options.retag_original {
-                        if let Err(error) = retag_image(&runtime, &tag, &image_key) {
-                            if options.verbose {
-                                println!("- {}: retag failed ({error})", image.ref_name());
-                            }
-                        }
-                    }
-
                     result
                         .updated_hashes
-                        .insert(image_key, options.bundle_hash.clone());
+                        .insert(new_id, options.bundle_hash.clone());
                 }
             }
             Err(error) => {
@@ -140,6 +137,7 @@ pub fn patch_images(
 struct LocalImage {
     repository: String,
     tag: String,
+    id: String,
 }
 
 impl LocalImage {
@@ -147,14 +145,22 @@ impl LocalImage {
         format!("{}:{}", self.repository, self.tag)
     }
 
-    fn patched_tag(&self, suffix: &str) -> String {
-        format!("{}:{}-tb-{}", self.repository, self.tag, suffix)
+    // hash-free alias that always points at the latest patched build; unlike retagging over
+    // the original tag, nothing else (e.g. an upstream `docker pull`) will ever overwrite this
+    fn stable_alias_tag(&self) -> String {
+        format!("{}:{}-tbridge", self.repository, self.tag)
     }
 }
 
 fn list_images(runtime: &ContainerRuntime) -> Result<Vec<LocalImage>> {
     let output = Command::new(runtime.command())
-        .args(["image", "ls", "--format", "{{.Repository}}|{{.Tag}}"])
+        .args([
+            "image",
+            "ls",
+            "--no-trunc",
+            "--format",
+            "{{.Repository}}|{{.Tag}}|{{.ID}}",
+        ])
         .output()
         .with_context(|| format!("failed to execute {} image ls", runtime.name()))?;
 
@@ -168,9 +174,10 @@ fn list_images(runtime: &ContainerRuntime) -> Result<Vec<LocalImage>> {
     let mut images = Vec::new();
 
     for line in stdout.lines() {
-        let mut parts = line.splitn(2, '|');
+        let mut parts = line.splitn(3, '|');
         let repository = parts.next().unwrap_or_default().trim();
         let tag = parts.next().unwrap_or_default().trim();
+        let id = parts.next().unwrap_or_default().trim();
 
         if repository.is_empty() || tag.is_empty() || repository == "<none>" || tag == "<none>" {
             continue;
@@ -179,6 +186,7 @@ fn list_images(runtime: &ContainerRuntime) -> Result<Vec<LocalImage>> {
         images.push(LocalImage {
             repository: repository.to_string(),
             tag: tag.to_string(),
+            id: id.trim_start_matches("sha256:").to_string(),
         });
     }
 
@@ -222,26 +230,17 @@ fn is_orchestrator_image(repository: &str) -> bool {
 }
 
 fn is_trustbridge_derived_tag(tag: &str) -> bool {
+    if tag.ends_with("-tbridge") {
+        return true;
+    }
     match tag.rsplit_once("-tb-") {
         Some((_, suffix)) => suffix.len() == 8 && suffix.chars().all(|c| c.is_ascii_hexdigit()),
         None => false,
     }
 }
 
-fn bundle_suffix(certs: &[Certificate]) -> String {
-    let mut fingerprints: Vec<String> = certs
-        .iter()
-        .map(|certificate| certificate.fingerprint_sha256.clone())
-        .collect();
-    fingerprints.sort();
-
-    let mut hasher = Sha256::new();
-    for fingerprint in fingerprints {
-        hasher.update(fingerprint.as_bytes());
-    }
-
-    let digest = format!("{:x}", hasher.finalize());
-    digest[..8].to_string()
+fn json_string_array(values: &[String]) -> String {
+    serde_json::to_string(values).unwrap_or_else(|_| "[]".to_string())
 }
 
 fn patch_single_image(
@@ -249,18 +248,25 @@ fn patch_single_image(
     image: &LocalImage,
     certs: &[Certificate],
     dry_run: bool,
-    suffix: &str,
-) -> Result<String> {
+    retag_original: bool,
+) -> Result<(String, String)> {
     let source_ref = image.ref_name();
-    let target_ref = image.patched_tag(suffix);
+    let target_ref = if retag_original {
+        source_ref.clone()
+    } else {
+        image.stable_alias_tag()
+    };
 
     if dry_run {
-        return Ok(target_ref);
+        return Ok((target_ref, image.id.clone()));
     }
 
     let container_id = create_patch_container(runtime, &source_ref)?;
     let result = patch_image_container(runtime, &container_id, certs)
-        .and_then(|_| commit_image(runtime, &container_id, &target_ref));
+        .and_then(|_| original_entrypoint_cmd(runtime, &source_ref))
+        .and_then(|(entrypoint, cmd)| {
+            commit_image(runtime, &container_id, &target_ref, &entrypoint, &cmd)
+        });
     let cleanup_result = remove_container(runtime, &container_id);
 
     if let Err(error) = result {
@@ -269,7 +275,7 @@ fn patch_single_image(
     }
 
     cleanup_result?;
-    Ok(target_ref)
+    Ok((target_ref, result.unwrap()))
 }
 
 fn create_patch_container(runtime: &ContainerRuntime, image_ref: &str) -> Result<String> {
@@ -361,20 +367,25 @@ fn import_into_java_truststore(
     cert_dir: &str,
 ) -> Result<()> {
     let script = format!(
-        "if command -v keytool >/dev/null 2>&1; then \
-         CACERTS=''; \
-         for candidate in \"$JAVA_HOME/lib/security/cacerts\" /opt/java/openjdk/lib/security/cacerts /usr/lib/jvm/*/lib/security/cacerts /opt/openjdk*/lib/security/cacerts; do \
-           if [ -f \"$candidate\" ]; then CACERTS=\"$candidate\"; break; fi; \
+        "KEYTOOL=''; \
+         for candidate in \"$JAVA_HOME/bin/keytool\" /opt/jdk/*/bin/keytool /opt/java/openjdk/bin/keytool /usr/lib/jvm/*/bin/keytool /opt/openjdk*/bin/keytool; do \
+           if [ -x \"$candidate\" ]; then KEYTOOL=\"$candidate\"; break; fi; \
          done; \
-         if [ -z \"$CACERTS\" ]; then CACERTS=$(find /usr/lib/jvm /opt -maxdepth 4 -name cacerts 2>/dev/null | head -n1); fi; \
-         if [ -n \"$CACERTS\" ]; then \
-           for f in {cert_dir}/*.crt; do \
-             [ -f \"$f\" ] || continue; \
-             alias=$(basename \"$f\" .crt); \
-             keytool -importcert -noprompt -trustcacerts -alias \"tbridge-$alias\" -file \"$f\" -keystore \"$CACERTS\" -storepass changeit >/dev/null 2>&1 || true; \
+         if [ -z \"$KEYTOOL\" ]; then KEYTOOL=$(command -v keytool 2>/dev/null || true); fi; \
+         if [ -n \"$KEYTOOL\" ]; then \
+           CACERTS=''; \
+           for candidate in \"$JAVA_HOME/lib/security/cacerts\" /opt/jdk/*/lib/security/cacerts /opt/java/openjdk/lib/security/cacerts /usr/lib/jvm/*/lib/security/cacerts /opt/openjdk*/lib/security/cacerts; do \
+             if [ -f \"$candidate\" ]; then CACERTS=\"$candidate\"; break; fi; \
            done; \
-         fi; \
-       fi"
+           if [ -z \"$CACERTS\" ]; then CACERTS=$(find /usr/lib/jvm /opt -maxdepth 5 -name cacerts 2>/dev/null | head -n1); fi; \
+           if [ -n \"$CACERTS\" ]; then \
+             for f in {cert_dir}/*.crt; do \
+               [ -f \"$f\" ] || continue; \
+               alias=$(basename \"$f\" .crt); \
+               \"$KEYTOOL\" -importcert -noprompt -trustcacerts -alias \"tbridge-$alias\" -file \"$f\" -keystore \"$CACERTS\" -storepass changeit >/dev/null 2>&1 || true; \
+             done; \
+           fi; \
+         fi"
     );
     exec_in_container(runtime, container_id, &["sh", "-lc", &script])
 }
@@ -408,21 +419,81 @@ fn detect_patch_strategy(
     Ok((cert_dir.to_string(), update_cmd.to_string()))
 }
 
-fn commit_image(runtime: &ContainerRuntime, container_id: &str, target_ref: &str) -> Result<()> {
-    let status = Command::new(runtime.command())
-        .args(["commit", container_id, target_ref])
-        .stdout(Stdio::null())
-        .status()
+// docker's own config JSON uses `null` for an unset Entrypoint/Cmd
+fn original_entrypoint_cmd(
+    runtime: &ContainerRuntime,
+    image_ref: &str,
+) -> Result<(Option<Vec<String>>, Option<Vec<String>>)> {
+    let output = Command::new(runtime.command())
+        .args([
+            "inspect",
+            "--format",
+            "{{json .Config.Entrypoint}}|||{{json .Config.Cmd}}",
+            image_ref,
+        ])
+        .output()
+        .with_context(|| format!("failed to inspect image `{image_ref}`"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("{} inspect failed for `{image_ref}`: {stderr}", runtime.name()));
+    }
+
+    let stdout = String::from_utf8(output.stdout)
+        .with_context(|| format!("invalid UTF-8 from {} inspect output", runtime.name()))?;
+    let mut parts = stdout.trim().splitn(2, "|||");
+    let entrypoint_json = parts.next().unwrap_or("null");
+    let cmd_json = parts.next().unwrap_or("null");
+
+    let entrypoint: Option<Vec<String>> = serde_json::from_str(entrypoint_json)
+        .with_context(|| format!("invalid Entrypoint JSON for `{image_ref}`: {entrypoint_json}"))?;
+    let cmd: Option<Vec<String>> = serde_json::from_str(cmd_json)
+        .with_context(|| format!("invalid Cmd JSON for `{image_ref}`: {cmd_json}"))?;
+
+    Ok((entrypoint, cmd))
+}
+
+fn commit_image(
+    runtime: &ContainerRuntime,
+    container_id: &str,
+    target_ref: &str,
+    entrypoint: &Option<Vec<String>>,
+    cmd: &Option<Vec<String>>,
+) -> Result<String> {
+    let mut command = Command::new(runtime.command());
+    command.arg("commit");
+
+    // restore the source image's own Entrypoint/Cmd: our temp patch container overrode both
+    // with an infinite sleep, and `docker commit` would otherwise bake that in permanently
+    command.arg("--change").arg(format!(
+        "ENTRYPOINT {}",
+        entrypoint.as_ref().map_or("[]".to_string(), |value| json_string_array(value))
+    ));
+    command.arg("--change").arg(format!(
+        "CMD {}",
+        cmd.as_ref().map_or("[]".to_string(), |value| json_string_array(value))
+    ));
+
+    let output = command
+        .args([container_id, target_ref])
+        .output()
         .with_context(|| format!("failed to commit temp container `{container_id}`"))?;
 
-    if !status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(anyhow!(
-            "{} commit failed for container `{container_id}`",
+            "{} commit failed for container `{container_id}`: {stderr}",
             runtime.name()
         ));
     }
 
-    Ok(())
+    let new_id = String::from_utf8(output.stdout)
+        .with_context(|| format!("invalid UTF-8 from {} commit output", runtime.name()))?
+        .trim()
+        .trim_start_matches("sha256:")
+        .to_string();
+
+    Ok(new_id)
 }
 
 fn remove_container(runtime: &ContainerRuntime, container_id: &str) -> Result<()> {

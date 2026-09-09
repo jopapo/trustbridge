@@ -341,7 +341,12 @@ fn resolve_runtime_targets(
 // v1: OS-level trust store update only (update-ca-certificates / update-ca-trust)
 // v2: + JVM cacerts import via keytool
 // v3: keytool discovery falls back to $JAVA_HOME/bin (not just PATH)
-const PATCH_STRATEGY_VERSION: u32 = 3;
+// v4: image patching restores original Entrypoint/Cmd on commit (was baking in the temp
+//     patch container's sleep-forever override); images.rs keytool discovery now matches v3
+// v5: image tracking keyed by the post-patch (not stale pre-patch) image ID, using full
+//     (--no-trunc) IDs consistently, so an externally re-pulled tag is correctly re-patched
+//     instead of being mistaken for "already in sync"
+const PATCH_STRATEGY_VERSION: u32 = 5;
 
 fn bundle_hash(certs: &[crate::core::certificate::Certificate]) -> String {
     let mut fingerprints: Vec<String> = certs
