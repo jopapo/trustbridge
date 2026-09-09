@@ -91,7 +91,8 @@ pub fn patch_images(
                             println!("- {}: retag failed ({error})", image.ref_name());
                         }
                     }
-                } else if let Err(error) = retag_image(&runtime, &image.id, &image.stable_alias_tag())
+                } else if let Err(error) =
+                    retag_image(&runtime, &image.id, &image.stable_alias_tag())
                 {
                     if options.verbose {
                         println!("- {}: alias retag failed ({error})", image.ref_name());
@@ -101,7 +102,13 @@ pub fn patch_images(
             continue;
         }
 
-        match patch_single_image(&runtime, &image, certs, options.dry_run, options.retag_original) {
+        match patch_single_image(
+            &runtime,
+            &image,
+            certs,
+            options.dry_run,
+            options.retag_original,
+        ) {
             Ok((tag, new_id)) => {
                 result.patched += 1;
                 if options.dry_run && options.verbose {
@@ -436,7 +443,10 @@ fn original_entrypoint_cmd(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("{} inspect failed for `{image_ref}`: {stderr}", runtime.name()));
+        return Err(anyhow!(
+            "{} inspect failed for `{image_ref}`: {stderr}",
+            runtime.name()
+        ));
     }
 
     let stdout = String::from_utf8(output.stdout)
@@ -467,11 +477,14 @@ fn commit_image(
     // with an infinite sleep, and `docker commit` would otherwise bake that in permanently
     command.arg("--change").arg(format!(
         "ENTRYPOINT {}",
-        entrypoint.as_ref().map_or("[]".to_string(), |value| json_string_array(value))
+        entrypoint
+            .as_ref()
+            .map_or("[]".to_string(), |value| json_string_array(value))
     ));
     command.arg("--change").arg(format!(
         "CMD {}",
-        cmd.as_ref().map_or("[]".to_string(), |value| json_string_array(value))
+        cmd.as_ref()
+            .map_or("[]".to_string(), |value| json_string_array(value))
     ));
 
     let output = command
