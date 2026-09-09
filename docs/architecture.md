@@ -89,18 +89,22 @@ Runtime patch flow:
 - optional `--include-orchestrator` includes system/k8s containers
 - attempt CA tooling install when absent
 - write certs and run trust update command as root (`docker exec -u 0`)
+- also import certs into the JVM cacerts keystore via `keytool` when present (OS trust store updates do not affect Java's own truststore); `keytool`/`cacerts` are located via `$JAVA_HOME` and common JDK install paths, not just `PATH`
 
 ### Local Images
 
 - select images by mode (`user|all|none`, default `user`)
 - optionally include orchestrator/system images
+- excludes trustbridge's own previously-patched images (tag ending in `-tb-<hash>`) from being re-patched, to avoid compounding suffixes
 - patch in temporary container and commit derived image
 - derived tag suffix: `-tb-<bundle_hash_prefix>`
 - attempt CA tooling install when absent
+- also imports certs into the JVM cacerts keystore, same as container patching
+- optional `--images-retag` re-tags the patched image over its original tag (e.g. `:latest`), so ephemeral `docker run` without an explicit trustbridge tag picks up the patched image
 
 ## Incremental Sync
 
-Bundle hash is computed from selected certificate fingerprints.
+Bundle hash is computed from selected certificate fingerprints plus a `PATCH_STRATEGY_VERSION` (see `apply.rs`). Bumping that version forces re-patching of already-synced containers/images even when the certificate set itself is unchanged, so fixes to the patch logic (e.g. Java truststore support) reach previously-patched targets automatically.
 
 State tracks per-target hash application:
 
@@ -126,7 +130,8 @@ Dev-local mode uses `.tbridge/`:
 - runtime remove operations limited to state-managed fingerprints
 - explicit logging per target/scope
 - tolerant multi-target runtime behavior in `auto` mode
-  - continue when one runtime target is unavailable
+  - apply to every compatible target that is available (e.g. rancher-desktop and colima both, if both running)
+  - an individual unavailable target is not reported unless *none* end up available
   - fail runtime scope only when no compatible target is available and no other scopes are selected
 
 ## Non-Goals (current)

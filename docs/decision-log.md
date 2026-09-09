@@ -38,6 +38,12 @@ This file summarizes major project decisions with context and rationale.
 - Decision: `apply` orchestrates all scopes with `--scope` and `--watch`.
 - Why: improves developer ergonomics and automation consistency.
 
+## 2026-09-08 - JVM truststore patching and patch-strategy versioning
+
+- Need: OS-level `update-ca-certificates`/`update-ca-trust` does not make Java trust corporate CAs, since the JVM ships its own `cacerts` keystore; also, previously-patched images were being re-discovered and re-patched on every `apply`, compounding `-tb-<hash>` tag suffixes until tags became invalid.
+- Decision: also import certs into the JVM cacerts store via `keytool` (resolved through `$JAVA_HOME`/common JDK paths, not just `PATH`) during container/image patching; exclude images already carrying a `-tb-<hash>` tag from re-patching; fold a `PATCH_STRATEGY_VERSION` into the bundle hash so patch-logic changes (like this one) force re-patching of already-synced targets; add `--images-retag` to re-tag a patched image over its original tag for ephemeral `docker run --rm` workflows.
+- Why: fixes real-world SSL trust failures in Java-based tools (e.g. SonarQube) running in containers/images patched by trustbridge, without requiring manual state resets or unbounded image tag growth.
+
 ## 2026-08-07 - ADR-0006 Runtime auto-target
 
 - Need: support mixed Rancher/Desktop and Colima environments.

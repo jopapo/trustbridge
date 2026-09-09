@@ -102,6 +102,7 @@ fn apply_once(
 
     if has_scope(&args.scope, "runtime") {
         let mut runtime_available = 0usize;
+        let mut unavailable: Vec<(String, anyhow::Error)> = Vec::new();
         for target in resolve_runtime_targets(args.target) {
             let target_fingerprints = match target.current_fingerprints() {
                 Ok(value) => {
@@ -109,16 +110,8 @@ fn apply_once(
                     value
                 }
                 Err(error) => {
-                    if !watch_mode && target.name() == "colima" {
-                        println!(
-                            "warning: runtime target `colima` unavailable: {error}\n  hint: colima uses Lima; verify profile/instance (default `colima`) or set TBRIDGE_COLIMA_INSTANCE=<profile>."
-                        );
-                    } else if !watch_mode {
-                        println!(
-                            "warning: runtime target `{}` unavailable: {error}",
-                            target.name()
-                        );
-                    }
+                    // one candidate being absent is only worth reporting if none end up available
+                    unavailable.push((target.name().to_string(), error));
                     continue;
                 }
             };
@@ -155,6 +148,18 @@ fn apply_once(
         }
 
         if runtime_available == 0 {
+            if !watch_mode {
+                for (name, error) in &unavailable {
+                    if name == "colima" {
+                        println!(
+                            "warning: runtime target `colima` unavailable: {error}\n  hint: colima uses Lima; verify profile/instance (default `colima`) or set TBRIDGE_COLIMA_INSTANCE=<profile>."
+                        );
+                    } else {
+                        println!("warning: runtime target `{name}` unavailable: {error}");
+                    }
+                }
+            }
+
             if has_scope(&args.scope, "containers") || has_scope(&args.scope, "images") {
                 runtime_status = "unavailable".to_string();
                 if !watch_mode {
@@ -227,6 +232,7 @@ fn apply_once(
                 limit: args.images_limit,
                 bundle_hash: bundle_hash.clone(),
                 known_hashes: snapshot.image_bundle_hashes.clone(),
+                retag_original: args.images_retag,
             },
         );
 
@@ -330,6 +336,18 @@ fn resolve_runtime_targets(
     }
 }
 
+// Bump whenever container/image patch logic changes, so already-synced targets get re-patched
+// even though the certificate bundle itself is unchanged.
+// v1: OS-level trust store update only (update-ca-certificates / update-ca-trust)
+// v2: + JVM cacerts import via keytool
+// v3: keytool discovery falls back to $JAVA_HOME/bin (not just PATH)
+// v4: image patching restores original Entrypoint/Cmd on commit (was baking in the temp
+//     patch container's sleep-forever override); images.rs keytool discovery now matches v3
+// v5: image tracking keyed by the post-patch (not stale pre-patch) image ID, using full
+//     (--no-trunc) IDs consistently, so an externally re-pulled tag is correctly re-patched
+//     instead of being mistaken for "already in sync"
+const PATCH_STRATEGY_VERSION: u32 = 5;
+
 fn bundle_hash(certs: &[crate::core::certificate::Certificate]) -> String {
     let mut fingerprints: Vec<String> = certs
         .iter()
@@ -338,6 +356,7 @@ fn bundle_hash(certs: &[crate::core::certificate::Certificate]) -> String {
     fingerprints.sort();
 
     let mut hasher = Sha256::new();
+    hasher.update(PATCH_STRATEGY_VERSION.to_le_bytes());
     for fingerprint in fingerprints {
         hasher.update(fingerprint.as_bytes());
     }

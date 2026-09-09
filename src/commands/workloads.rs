@@ -25,17 +25,9 @@ pub struct WorkloadPatchResult {
 
 pub fn patch_workloads(
     certs: &[Certificate],
-    stats: &FilterStats,
+    _stats: &FilterStats,
     options: &WorkloadPatchOptions,
 ) -> Result<WorkloadPatchResult> {
-    if options.verbose {
-        println!(
-            "workload patch filter result: kept {} / dropped {}",
-            stats.kept, stats.dropped
-        );
-        println!("workload patch certificates selected: {}", certs.len());
-    }
-
     let mut result = WorkloadPatchResult {
         updated_hashes: options.known_hashes.clone(),
         patched: 0,
@@ -63,14 +55,7 @@ pub fn patch_workloads(
         .collect();
 
     if containers.is_empty() {
-        if options.verbose {
-            println!("workload patch: no running containers selected");
-        }
         return Ok(result);
-    }
-
-    if options.verbose {
-        println!("workload patch containers selected: {}", containers.len());
     }
 
     for container in containers {
@@ -79,9 +64,6 @@ pub fn patch_workloads(
             .get(&container)
             .is_some_and(|hash| hash == &options.bundle_hash)
         {
-            if options.verbose {
-                println!("- {container}: skipped (already in sync)");
-            }
             result.skipped += 1;
             continue;
         }
@@ -177,7 +159,43 @@ fn patch_container(
     }
 
     exec_in_container_root(runtime, container, &["sh", "-lc", &update_cmd])?;
+
+    // JVM ships its own cacerts store; update-ca-certificates never touches it.
+    import_into_java_truststore(runtime, container, &cert_dir)?;
     Ok(())
+}
+
+fn import_into_java_truststore(
+    runtime: &ContainerRuntime,
+    container: &str,
+    cert_dir: &str,
+) -> Result<()> {
+    let script = java_truststore_import_script(cert_dir);
+    exec_in_container_root(runtime, container, &["sh", "-lc", &script])
+}
+
+fn java_truststore_import_script(cert_dir: &str) -> String {
+    format!(
+        "KEYTOOL=''; \
+         for candidate in \"$JAVA_HOME/bin/keytool\" /opt/jdk/*/bin/keytool /opt/java/openjdk/bin/keytool /usr/lib/jvm/*/bin/keytool /opt/openjdk*/bin/keytool; do \
+           if [ -x \"$candidate\" ]; then KEYTOOL=\"$candidate\"; break; fi; \
+         done; \
+         if [ -z \"$KEYTOOL\" ]; then KEYTOOL=$(command -v keytool 2>/dev/null || true); fi; \
+         if [ -n \"$KEYTOOL\" ]; then \
+           CACERTS=''; \
+           for candidate in \"$JAVA_HOME/lib/security/cacerts\" /opt/jdk/*/lib/security/cacerts /opt/java/openjdk/lib/security/cacerts /usr/lib/jvm/*/lib/security/cacerts /opt/openjdk*/lib/security/cacerts; do \
+             if [ -f \"$candidate\" ]; then CACERTS=\"$candidate\"; break; fi; \
+           done; \
+           if [ -z \"$CACERTS\" ]; then CACERTS=$(find /usr/lib/jvm /opt -maxdepth 5 -name cacerts 2>/dev/null | head -n1); fi; \
+           if [ -n \"$CACERTS\" ]; then \
+             for f in {cert_dir}/*.crt; do \
+               [ -f \"$f\" ] || continue; \
+               alias=$(basename \"$f\" .crt); \
+               \"$KEYTOOL\" -importcert -noprompt -trustcacerts -alias \"tbridge-$alias\" -file \"$f\" -keystore \"$CACERTS\" -storepass changeit >/dev/null 2>&1 || true; \
+             done; \
+           fi; \
+         fi"
+    )
 }
 
 fn ensure_ca_update_tool(runtime: &ContainerRuntime, container: &str, dry_run: bool) -> Result<()> {
@@ -253,6 +271,7 @@ fn exec_in_container_root(
         .arg("0")
         .arg(container)
         .args(args)
+        .stdout(Stdio::null())
         .status()
         .with_context(|| {
             format!(
